@@ -1,0 +1,16 @@
+name: WorldMood
+version: '1.0'
+main: com.rex.worldMood.WorldMood
+api-version: '1.17'
+description: Adds dynamic world moods and atmosphere effects to the game.
+author: RexMicky
+commands:
+  worldmood:
+    description: Main command for WorldMood plugin.
+    usage: /<command> [reload|start|skip|list]
+    permission: worldmood.admin
+    aliases: [wm]
+permissions:
+  worldmood.admin:
+    description: Allows access to all WorldMood commands.
+    default: op
