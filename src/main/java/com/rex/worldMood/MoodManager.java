@@ -127,7 +127,7 @@ public class MoodManager implements Listener {
             return false;
         }
         if (weightedMoodList.isEmpty()) {
-            plugin.getLogger().warning("Cannot start random mood: No enabled moods found.");
+            plugin.getLogger().warning("Cannot start random mood: No enabled moods found");
             return false;
         }
 
