@@ -41,7 +41,7 @@ The main command for this plugin is `/worldmood` or `/wm`.
 
 ## **⚙️ Installation**
 
-1. Download the latest version of `WorldMood.jar` from the [Releases](https://www.google.com/search?q=https://github.com/Rex-Micky/WorldMood-Plugin/releases) page.  
+1. Download the latest version of `WorldMood.jar` from the [Releases](https://github.com/Rex-Micky/WorldMood-Plugin/releases) page.  
 2. Place the `.jar` file into your server's `/plugins` folder.  
 3. Restart or reload your server.  
 4. The plugin will generate its configuration files in `/plugins/WorldMood/`. You can edit the `config.yml` to customize the plugin to your liking.
@@ -59,6 +59,6 @@ The `config.yml` file is heavily commented and allows you to configure:
 
 Got a question, found a bug, or have a cool idea for a new mood? Feel free to:
 
-* Open an issue on this [GitHub repository](https://www.google.com/search?q=https://github.com/Rex-Micky/WorldMood-Plugin/issues).  
-* Join my [Discord Server](https://www.google.com/search?q=https://discord.gg/9bmgP7BpH8) for support.
+* Open an issue on this [GitHub repository](https://github.com/Rex-Micky/WorldMood-Plugin/issues).  
+* Join my [Discord Server](https://discord.gg/9bmgP7BpH8) for support.
 
