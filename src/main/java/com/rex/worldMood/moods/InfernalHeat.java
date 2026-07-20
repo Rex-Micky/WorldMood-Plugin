@@ -107,10 +107,7 @@ public class InfernalHeat extends Mood implements Listener {
     public void tick(long ticksRemaining) {
         if (!configBurnInSunlight) return;
 
-        if (plugin.getCurrentTick() % 10 != 0) {
-            return;
-        }
-
+        // Runs once per second (MoodManager ticks moods at 20-tick intervals).
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.getWorld().getEnvironment() != World.Environment.NORMAL) {
                 continue;

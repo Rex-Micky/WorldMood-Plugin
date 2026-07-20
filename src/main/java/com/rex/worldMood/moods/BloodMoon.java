@@ -165,6 +165,9 @@ public class BloodMoon extends Mood implements Listener {
             if (world.getEnvironment() == World.Environment.NORMAL) {
                 WorldBorder border = world.getWorldBorder();
                 originalBorders.put(world.getUID(), new OriginalBorderSettings(border));
+                // Persist BEFORE mutating: the border lives in the world save, so a crash here
+                // would otherwise leave the server permanently red-tinted and damaging players.
+                plugin.getWorldStateGuard().recordBorder(world);
                 border.setCenter(border.getCenter()); border.setSize(60000000);
                 border.setDamageBuffer(0); border.setDamageAmount(0);
                 border.setWarningTime(0); // Instant red tint
@@ -215,6 +218,8 @@ public class BloodMoon extends Mood implements Listener {
                     border.setCenter(settings.centerX, settings.centerZ); border.setSize(settings.size);
                     border.setDamageBuffer(settings.damageBuffer); border.setDamageAmount(settings.damageAmount);
                     border.setWarningTime(settings.warningTime); border.setWarningDistance(settings.warningDistance);
+                    // Restored cleanly — drop the crash-recovery record.
+                    plugin.getWorldStateGuard().clearBorder(world);
                 } catch (Exception e) { plugin.getLogger().severe("Failed to restore world border for " + world.getName() + ": " + e.getMessage()); }
             }
         });
@@ -240,7 +245,7 @@ public class BloodMoon extends Mood implements Listener {
 
     @Override
     public void tick(long ticksRemaining) {
-        if (plugin.getCurrentTick() % 10 != 0) return;
+        // Runs once per second (MoodManager ticks moods at 20-tick intervals).
         Particle.DustOptions dustOptions = new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.2f);
         for (Player player : Bukkit.getOnlinePlayers()) {
             World world = player.getWorld();

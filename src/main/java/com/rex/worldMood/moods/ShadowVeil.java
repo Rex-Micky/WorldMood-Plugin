@@ -19,10 +19,10 @@ public class ShadowVeil extends Mood {
     private int effectIntervalSeconds;
     private int blindnessDurationTicks;
     private int invisibilityDurationTicks;
-    private long lastEffectCheckTick = 0;
     private final Random random = new Random();
 
-    private static final int SPOOKY_EFFECT_INTERVAL = 35;
+    /** In seconds — tick() is invoked once per second. */
+    private static final int SPOOKY_EFFECT_INTERVAL_SECONDS = 2;
     private static final double SPOOKY_SOUND_CHANCE = 0.15;
     private static final double CAVE_DARKNESS_CHANCE = 0.03;
     private static final int CAVE_DARKNESS_DURATION = 40;
@@ -99,7 +99,6 @@ public class ShadowVeil extends Mood {
 
     @Override
     public void apply() {
-        lastEffectCheckTick = plugin.getCurrentTick();
         for(Player p : Bukkit.getOnlinePlayers()) {
             if (p.getWorld().getEnvironment() == World.Environment.NORMAL || p.getWorld().getEnvironment() == World.Environment.NETHER) {
                 p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_STARE, SoundCategory.AMBIENT, 0.6f, 0.7f);
@@ -130,12 +129,8 @@ public class ShadowVeil extends Mood {
 
     @Override
     public void tick(long ticksRemaining) {
-        long currentTick = plugin.getCurrentTick();
-        long effectIntervalTicks = effectIntervalSeconds * 20L;
-
-        if (effectIntervalTicks > 0 && currentTick >= lastEffectCheckTick + effectIntervalTicks) {
-            lastEffectCheckTick = currentTick;
-
+        // tick() runs once per second, so secondsElapsed is directly comparable to the config value.
+        if (effectIntervalSeconds > 0 && secondsElapsed % effectIntervalSeconds == 0) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.isDead() || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) continue;
                 if (player.getWorld().getEnvironment() != World.Environment.NORMAL && player.getWorld().getEnvironment() != World.Environment.NETHER) continue;
@@ -157,7 +152,7 @@ public class ShadowVeil extends Mood {
             }
         }
 
-        if (currentTick % SPOOKY_EFFECT_INTERVAL == 0) {
+        if (secondsElapsed % SPOOKY_EFFECT_INTERVAL_SECONDS == 0) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.isDead() || player.getGameMode() == GameMode.SPECTATOR) continue;
                 if (player.getWorld().getEnvironment() != World.Environment.NORMAL && player.getWorld().getEnvironment() != World.Environment.NETHER) continue;

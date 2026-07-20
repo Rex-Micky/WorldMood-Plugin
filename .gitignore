@@ -25,6 +25,9 @@ Thumbs.db
 
 # Package Files #
 *.jar
+# ...but the Gradle wrapper jar MUST be committed, or a fresh clone cannot build:
+# ./gradlew fails with "ClassNotFoundException: org.gradle.wrapper.GradleWrapperMain".
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear

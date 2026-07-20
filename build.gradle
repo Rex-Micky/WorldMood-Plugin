@@ -1,11 +1,15 @@
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'com.rex'
-version = '1.0'
+version = '1.1.0'
+
+// Pin the jar name so it doesn't inherit whatever the checkout folder happens to be called.
+base {
+    archivesName = 'WorldMood'
+}
 
 repositories {
     mavenCentral()
@@ -23,51 +27,10 @@ dependencies {
     compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
-configurations {
-    proguard
-}
-
-dependencies {
-    proguard 'net.sf.proguard:proguard-base:7.2.2'
-}
-
-tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    archiveClassifier.set('')
-    destinationDirectory.set(file("$buildDir/libs"))
-    mergeServiceFiles()
-}
-
-task obfuscate(type: JavaExec) {
-    group = 'build'
-    description = 'Runs ProGuard obfuscation'
-    classpath = configurations.proguard
-    main = 'proguard.ProGuard'
-
-    args = [
-            '@proguard.pro'
-    ]
-}
-
-tasks {
-    runServer {
-        minecraftVersion("1.21")
-    }
-}
-
-/*processResources {
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE // Or WARN if preferred
-    from(sourceSets.main.resources.srcDirs) {
-        // Replace placeholders in plugin.yml if needed (e.g., version)
-        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [version: project.version])
-    }
-}*/
-
+// Single source of truth for the Java version. There used to be two conflicting `java {}` blocks
+// (17 and 21); the later one silently won, so the jar required Java 21 while the docs said 17.
 def targetJavaVersion = 21
+
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion
@@ -79,9 +42,12 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.release.set(targetJavaVersion)
+}
 
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        options.release.set(targetJavaVersion)
+tasks {
+    runServer {
+        minecraftVersion("1.21")
     }
 }
 

@@ -87,8 +87,18 @@ public class WorldMoodCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(PREFIX + "Stopping current mood: " + ChatColor.WHITE + currentMoodToStop.getName() + ChatColor.AQUA + "...");
                     plugin.getMoodManager().stopCurrentMood();
                     if (subCommand.equals("skip") && plugin.getConfig().getBoolean("randomizeMoods", true)) {
-                        sender.sendMessage(PREFIX + "Attempting to trigger next random mood from cycle...");
-                        plugin.getMoodManager().startRandomMood();
+                        // Report what actually happened — this used to print "attempting..." and
+                        // discard the result, so a failed roll looked like a success.
+                        if (plugin.getMoodManager().startRandomMood()) {
+                            Mood started = plugin.getMoodManager().getCurrentMood();
+                            sender.sendMessage(PREFIX + "Started: " + ChatColor.WHITE
+                                    + (started != null ? started.getName() : "a new mood"));
+                        } else {
+                            sender.sendMessage(PREFIX + ChatColor.YELLOW + "No mood could start right now — "
+                                    + "every enabled mood is restricted to a different time of day. "
+                                    + "Use " + ChatColor.WHITE + "/" + label + " start <mood_key>"
+                                    + ChatColor.YELLOW + " to force one.");
+                        }
                     }
                 } else {
                     sender.sendMessage(PREFIX + ChatColor.YELLOW + "No mood is currently active to " + subCommand + ".");

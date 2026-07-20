@@ -55,6 +55,29 @@ public abstract class Mood {
         return enabled;
     }
 
+    /**
+     * Counts invocations of {@link #tick(long)} for the CURRENT activation of this mood.
+     * <p>
+     * MoodManager calls {@code tick} once per second, so this is effectively "seconds elapsed".
+     * Moods must throttle off this counter, never off a free-running server tick counter: because
+     * {@code tick} is only invoked on a stride of 20 ticks, a global counter is always the same
+     * value modulo any divisor of 20, so a gate like {@code globalTick % 10 == 0} is either always
+     * true or always false for the whole lifetime of the server, decided by scheduling phase.
+     * That bug silently disabled the BloodMoon and InfernalHeat effects.
+     */
+    protected long secondsElapsed = 0;
+
+    /** Invoked by MoodManager once per second. Keeps the counter honest for every subclass. */
+    public final void handleTick(long ticksRemaining) {
+        secondsElapsed++;
+        tick(ticksRemaining);
+    }
+
+    /** Clears per-activation state. MoodManager calls this immediately before {@link #apply()}. */
+    public void resetActivationState() {
+        secondsElapsed = 0;
+    }
+
     public void tick(long ticksRemaining) {
     }
 

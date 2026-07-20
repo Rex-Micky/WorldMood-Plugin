@@ -1,13 +1,17 @@
 name: WorldMood
-version: '1.0'
+version: '${version}'
 main: com.rex.worldMood.WorldMood
-api-version: '1.17'
-description: Adds dynamic world moods and atmosphere effects to the game.
+# The code uses Criteria.DUMMY, Particle.DUST and PotionEffectType.SLOWNESS, none of which exist
+# on older servers. Declaring an older api-version let the plugin LOAD on 1.17-1.20 and then throw
+# NoSuchFieldError the moment a mood started. Failing to load is the honest outcome.
+api-version: '1.21'
+description: Seven world moods that change how your server plays - mobs, loot, light and weather.
 author: RexMicky
+website: https://studio.rexmicky.dev
 commands:
   worldmood:
     description: Main command for WorldMood plugin.
-    usage: /<command> [reload|start|skip|list]
+    usage: /<command> [reload|start <mood>|skip|stop|list|info]
     permission: worldmood.admin
     aliases: [wm]
 permissions:

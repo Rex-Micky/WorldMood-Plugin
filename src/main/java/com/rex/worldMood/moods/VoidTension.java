@@ -45,7 +45,8 @@ public class VoidTension extends Mood implements Listener {
     private boolean anomalyVoidLeechEnabled; private int anomalyVoidLeechWitherDurationTicks;
 
     private static final double UNIVERSAL_SPEED_MULTIPLIER = 1.15;
-    private static final int MOB_TELEPORT_INTERVAL = 40;
+    /** In seconds — tick() is invoked once per second. */
+    private static final int MOB_TELEPORT_INTERVAL_SECONDS = 2;
     private static final double MOB_TELEPORT_CHANCE_PER_MOB = 0.40;
     private static final double MOB_TELEPORT_MAX_DISTANCE = 10.0;
 
@@ -229,6 +230,8 @@ public class VoidTension extends Mood implements Listener {
             if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.THE_END) {
                 WorldBorder border = world.getWorldBorder();
                 originalBorders.put(world.getUID(), new OriginalBorderSettings(border));
+                // Persist BEFORE mutating — see WorldStateGuard.
+                plugin.getWorldStateGuard().recordBorder(world);
                 border.setCenter(border.getCenter()); border.setSize(60000000); border.setDamageBuffer(0);
                 border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(59999900);
             }
@@ -265,6 +268,8 @@ public class VoidTension extends Mood implements Listener {
                     border.setCenter(settings.centerX, settings.centerZ); border.setSize(settings.size);
                     border.setDamageBuffer(settings.damageBuffer); border.setDamageAmount(settings.damageAmount);
                     border.setWarningTime(settings.warningTime); border.setWarningDistance(settings.warningDistance);
+                    // Restored cleanly — drop the crash-recovery record.
+                    plugin.getWorldStateGuard().clearBorder(world);
                 } catch (Exception e) { plugin.getLogger().warning("Failed to restore border for " + world.getName() + ": " + e.getMessage());}
             }
         });
@@ -288,7 +293,6 @@ public class VoidTension extends Mood implements Listener {
 
     @Override
     public void tick(long ticksRemaining) {
-        long currentTick = plugin.getCurrentTick();
         if (configEnableAnomalies && !anomalyExecutors.isEmpty()) {
             int playerCount = Bukkit.getOnlinePlayers().size();
             if (playerCount > 0) {
@@ -298,7 +302,7 @@ public class VoidTension extends Mood implements Listener {
                 }
             }
         }
-        if (currentTick % MOB_TELEPORT_INTERVAL == 0) {
+        if (secondsElapsed % MOB_TELEPORT_INTERVAL_SECONDS == 0) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 World world = player.getWorld();
                 if (world.getEnvironment() != World.Environment.NORMAL && world.getEnvironment() != World.Environment.NETHER && world.getEnvironment() != World.Environment.THE_END) continue;

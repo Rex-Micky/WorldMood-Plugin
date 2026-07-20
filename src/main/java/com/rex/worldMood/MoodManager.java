@@ -40,6 +40,9 @@ public class MoodManager implements Listener {
     private BukkitTask hudHideTask = null;
     private final Map<UUID, Scoreboard> playerOriginalScoreboards = new ConcurrentHashMap<>();
     private static final String SCOREBOARD_OBJECTIVE_NAME = "wm_hud";
+    /** ChatColor.values()[0..15] are the colour codes — one unique prefix per HUD line. */
+    private static final int MAX_HUD_LINES = 15;
+    private static final int MAX_ENTRY_LENGTH = 40;
 
     public MoodManager(WorldMood plugin) {
         this.plugin = plugin;
@@ -131,25 +134,40 @@ public class MoodManager implements Listener {
             return false;
         }
 
-        Mood selectedMood = weightedMoodList.get(ThreadLocalRandom.current().nextInt(weightedMoodList.size()));
+        // Filter to moods that can actually run right now BEFORE picking one. Picking first and
+        // then rejecting on time-of-day meant a single unlucky draw wasted the entire cycle
+        // interval (30 minutes by default) doing nothing at all, which reads as "plugin is dead".
+        List<Mood> eligible = weightedMoodList.stream()
+                .filter(this::isEligibleNow)
+                .collect(Collectors.toList());
+
+        if (eligible.isEmpty()) {
+            plugin.getLogger().info("No moods are eligible at this time of day. Trying again next cycle.");
+            return false;
+        }
+
+        // The list still holds one entry per weight point, so weighting is preserved.
+        Mood selectedMood = eligible.get(ThreadLocalRandom.current().nextInt(eligible.size()));
+        return startMood(selectedMood);
+    }
+
+    /** Whether a mood's time-of-day requirement is satisfied right now. */
+    private boolean isEligibleNow(Mood mood) {
+        if (!mood.requiresNight() && !mood.requiresDay()) return true;
 
         World primaryWorld = Bukkit.getWorlds().stream()
                 .filter(w -> w.getEnvironment() == World.Environment.NORMAL)
                 .findFirst().orElse(null);
 
-        if (primaryWorld != null) {
-            long time = primaryWorld.getTime();
-            if (selectedMood.requiresNight() && !(time >= 12500 && time < 24000)) {
-                return false;
-            } else if (selectedMood.requiresDay() && !(time >= 0 && time < 12500)) {
-                return false;
-            }
-        } else if (selectedMood.requiresNight() || selectedMood.requiresDay()) {
-            plugin.getLogger().warning("Could not find an Overworld to check time for time-restricted mood '" + selectedMood.getName() + "'. Skipping.");
+        if (primaryWorld == null) {
+            plugin.getLogger().warning("No Overworld found; cannot evaluate the time restriction on '"
+                    + mood.getName() + "'.");
             return false;
         }
 
-        return startMood(selectedMood);
+        long time = primaryWorld.getTime();
+        boolean isNight = time >= 12500 && time < 24000;
+        return mood.requiresNight() ? isNight : !isNight;
     }
 
     public boolean startSpecificMood(String moodKey) {
@@ -178,6 +196,7 @@ public class MoodManager implements Listener {
         currentMood = mood;
         plugin.getLogger().info("Starting mood: " + currentMood.getName());
 
+        currentMood.resetActivationState();
         currentMood.apply();
 
         if (plugin.getConfig().getBoolean("broadcastMoodChanges", true)) {
@@ -229,7 +248,7 @@ public class MoodManager implements Listener {
                 ticksRemaining -= 20;
                 if (ticksRemaining < 0) ticksRemaining = 0;
 
-                currentMood.tick(ticksRemaining);
+                currentMood.handleTick(ticksRemaining);
                 updateHUDProgress(ticksRemaining, finalDurationTicks);
 
                 if (ticksRemaining <= 0) {
@@ -397,21 +416,21 @@ public class MoodManager implements Listener {
             effects.forEach(effect -> lines.add(ChatColor.WHITE + "- " + (effect.length() > 35 ? effect.substring(0, 32) + "..." : effect)));
         }
 
+        // Each entry gets a unique colour-code prefix derived from its INDEX, not its hash.
+        // Index-derived prefixes are unique by construction, so no retry loop is needed.
+        // (The previous hash-based version could spin forever: prepending a 2-char code and then
+        // trimming back to 40 chars removed exactly the characters it had just added.)
         int scoreValue = lines.size();
-        for (String line : lines) {
-            String entry = ChatColor.values()[Math.abs(line.hashCode()) % 15].toString() + ChatColor.RESET + line;
-            if (entry.length() > 40) entry = entry.substring(0, 40);
-            while (temporaryHudScoreboard.getEntries().contains(entry)) {
-                entry = ChatColor.RESET + entry;
-                if (entry.length() > 40) entry = entry.substring(entry.length() - 40);
-            }
-
-            Score score = objective.getScore(entry);
-            score.setScore(scoreValue--);
-            if (scoreValue <= 0 && lines.indexOf(line) < lines.size() - 1) {
-                plugin.getLogger().warning("Scoreboard HUD has more lines than can be displayed. Some were truncated.");
+        for (int index = 0; index < lines.size(); index++) {
+            if (index >= MAX_HUD_LINES) {
+                plugin.getLogger().warning("Scoreboard HUD had more lines than can be displayed ("
+                        + lines.size() + "); showing the first " + MAX_HUD_LINES + ".");
                 break;
             }
+            String prefix = ChatColor.values()[index].toString() + ChatColor.RESET;
+            String entry = prefix + trimToLength(lines.get(index), MAX_ENTRY_LENGTH - prefix.length());
+
+            objective.getScore(entry).setScore(scoreValue - index);
         }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -489,6 +508,15 @@ public class MoodManager implements Listener {
 
     public Collection<Mood> getEnabledMoods() {
         return availableMoods.values().stream().filter(Mood::isEnabled).collect(Collectors.toList());
+    }
+
+    /** Trims to {@code max} chars without leaving a dangling section sign that would corrupt the line. */
+    private String trimToLength(String text, int max) {
+        if (text == null) return "";
+        if (text.length() <= max) return text;
+        String trimmed = text.substring(0, max);
+        if (trimmed.endsWith("§")) trimmed = trimmed.substring(0, trimmed.length() - 1);
+        return trimmed;
     }
 
     private String formatTime(long totalSeconds) {

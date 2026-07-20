@@ -17,6 +17,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.ChatColor;
 import org.bukkit.SoundCategory;
 
@@ -30,6 +31,7 @@ public class CalmSkies extends Mood implements Listener {
     private final Map<UUID, Boolean> originalMobSpawningRules = new HashMap<>();
     private boolean configDisableMobSpawning;
     private int regenAmplifier;
+    private BukkitTask ambientParticleTask;
 
     private static final int REGEN_DURATION_TICKS = 120 * 20;
 
@@ -84,8 +86,13 @@ public class CalmSkies extends Mood implements Listener {
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL) {
                 if (configDisableMobSpawning) {
+                    Boolean original = world.getGameRuleValue(GameRule.DO_MOB_SPAWNING);
+                    if (original == null) original = Boolean.TRUE;
                     // Store original value before changing, using world UUID as key
-                    originalMobSpawningRules.put(world.getUID(), world.getGameRuleValue(GameRule.DO_MOB_SPAWNING));
+                    originalMobSpawningRules.put(world.getUID(), original);
+                    // Persist BEFORE mutating: doMobSpawning lives in the world save, so a crash
+                    // here would otherwise disable mob spawning permanently.
+                    plugin.getWorldStateGuard().recordGameRule(world, GameRule.DO_MOB_SPAWNING, original);
                     world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
                 }
                 world.setStorm(false);
@@ -109,7 +116,10 @@ public class CalmSkies extends Mood implements Listener {
             player.sendMessage(ChatColor.GREEN + "A calming, regenerative aura washes over you...");
         }
 
-        new BukkitRunnable() {
+        // Tracked so remove() can cancel it deterministically. Relying on the task noticing that
+        // the mood changed left it alive for up to 2s, and a quick restart could stack duplicates.
+        if (ambientParticleTask != null) ambientParticleTask.cancel();
+        ambientParticleTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (plugin.getMoodManager().getCurrentMood() != CalmSkies.this) {
@@ -129,12 +139,19 @@ public class CalmSkies extends Mood implements Listener {
     public void remove() {
         HandlerList.unregisterAll(this);
 
+        if (ambientParticleTask != null) {
+            ambientParticleTask.cancel();
+            ambientParticleTask = null;
+        }
+
         originalMobSpawningRules.forEach((worldUID, originalValue) -> {
             World world = Bukkit.getWorld(worldUID);
             if (world != null && world.getEnvironment() == World.Environment.NORMAL) {
                 if (configDisableMobSpawning && originalValue != null) {
                     world.setGameRule(GameRule.DO_MOB_SPAWNING, originalValue);
                 }
+                // Restored cleanly — the crash-recovery record is no longer needed.
+                plugin.getWorldStateGuard().clearGameRule(world, GameRule.DO_MOB_SPAWNING);
             }
         });
         originalMobSpawningRules.clear();

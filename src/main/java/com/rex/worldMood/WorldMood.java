@@ -1,27 +1,20 @@
 package com.rex.worldMood;
 
 import com.rex.worldMood.commands.WorldMoodCommand;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class WorldMood extends JavaPlugin {
 
     private MoodManager moodManager;
-    private int currentTick = 0;
-
-    public void startTickCounter() {
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-            currentTick++;
-        }, 1L, 1L);
-    }
-
-    public int getCurrentTick() {
-        return currentTick;
-    }
+    private WorldStateGuard worldStateGuard;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
+
+        // Must run before any mood can start: puts back world settings that a crash left behind.
+        worldStateGuard = new WorldStateGuard(this);
+        worldStateGuard.restorePending();
 
         moodManager = new MoodManager(this);
 
@@ -37,7 +30,6 @@ public final class WorldMood extends JavaPlugin {
         } else {
             getLogger().warning("WorldMood is disabled in the config. Not starting mood cycle.");
         }
-        startTickCounter();
     }
 
     @Override
@@ -66,5 +58,9 @@ public final class WorldMood extends JavaPlugin {
 
     public MoodManager getMoodManager() {
         return moodManager;
+    }
+
+    public WorldStateGuard getWorldStateGuard() {
+        return worldStateGuard;
     }
 }

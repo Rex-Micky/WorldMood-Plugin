@@ -32,7 +32,8 @@ public class ProsperousWinds extends Mood implements Listener {
 
     private static final double PARTIAL_LOOT_DUPE_CHANCE = 0.5;
     private static final double XP_MULTIPLIER = 1.5;
-    private static final int WIND_EFFECT_INTERVAL = 25;
+    /** In seconds — tick() is invoked once per second. */
+    private static final int WIND_EFFECT_INTERVAL_SECONDS = 2;
     private static final double WIND_EFFECT_CHANCE_PER_PLAYER = 0.15;
 
     private static final Set<Material> ORE_MATERIALS = Set.of(
@@ -116,7 +117,7 @@ public class ProsperousWinds extends Mood implements Listener {
 
     @Override
     public void tick(long ticksRemaining) {
-        if (!configEnableWindEffects || plugin.getCurrentTick() % WIND_EFFECT_INTERVAL != 0) {
+        if (!configEnableWindEffects || secondsElapsed % WIND_EFFECT_INTERVAL_SECONDS != 0) {
             return;
         }
 
