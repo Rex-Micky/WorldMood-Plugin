@@ -7,6 +7,10 @@
 .gradle/
 build/
 
+# Local test server (run-paper / a manually placed paper jar)
+run/
+run-data/
+
 # System files
 .DS_Store
 Thumbs.db
