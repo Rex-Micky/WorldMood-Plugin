@@ -168,7 +168,10 @@ public class BloodMoon extends Mood implements Listener {
                 // Persist BEFORE mutating: the border lives in the world save, so a crash here
                 // would otherwise leave the server permanently red-tinted and damaging players.
                 plugin.getWorldStateGuard().recordBorder(world);
-                border.setCenter(border.getCenter()); border.setSize(60000000);
+                // NOT a hard-coded 60000000: the server rejects anything above getMaxSize()
+                // (59,999,968) with IllegalArgumentException, which threw partway through apply()
+                // and left the mood permanently stuck with a half-modified border.
+                border.setCenter(border.getCenter()); border.setSize(border.getMaxSize());
                 border.setDamageBuffer(0); border.setDamageAmount(0);
                 border.setWarningTime(0); // Instant red tint
                 border.setWarningDistance(59999900);

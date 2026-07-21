@@ -232,7 +232,8 @@ public class VoidTension extends Mood implements Listener {
                 originalBorders.put(world.getUID(), new OriginalBorderSettings(border));
                 // Persist BEFORE mutating — see WorldStateGuard.
                 plugin.getWorldStateGuard().recordBorder(world);
-                border.setCenter(border.getCenter()); border.setSize(60000000); border.setDamageBuffer(0);
+                // See BloodMoon: setSize() above getMaxSize() throws IllegalArgumentException.
+                border.setCenter(border.getCenter()); border.setSize(border.getMaxSize()); border.setDamageBuffer(0);
                 border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(59999900);
             }
         }

@@ -197,7 +197,25 @@ public class MoodManager implements Listener {
         plugin.getLogger().info("Starting mood: " + currentMood.getName());
 
         currentMood.resetActivationState();
-        currentMood.apply();
+
+        // If apply() throws partway through, the mood is left half-applied AND currentMood stays
+        // set, so nothing can ever start or stop again without a restart. Undo what we can and
+        // abort cleanly instead.
+        try {
+            currentMood.apply();
+        } catch (Throwable applyError) {
+            plugin.getLogger().severe("Mood '" + currentMood.getName() + "' failed to apply and was "
+                    + "rolled back: " + applyError);
+            applyError.printStackTrace();
+            try {
+                currentMood.remove();
+            } catch (Throwable cleanupError) {
+                plugin.getLogger().severe("Cleanup after the failed mood ALSO failed. World settings "
+                        + "may be left changed; they will be restored on the next startup: " + cleanupError);
+            }
+            currentMood = null;
+            return false;
+        }
 
         if (plugin.getConfig().getBoolean("broadcastMoodChanges", true)) {
             Bukkit.broadcastMessage(ChatColor.DARK_AQUA + "[WorldMood] " + ChatColor.AQUA + "The atmosphere shifts... " + ChatColor.BOLD + currentMood.getName() + ChatColor.RESET + ChatColor.AQUA + " has begun!");
