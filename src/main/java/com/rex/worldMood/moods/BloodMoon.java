@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
@@ -171,7 +172,7 @@ public class BloodMoon extends Mood implements Listener {
                 // NOT a hard-coded 60000000: the server rejects anything above getMaxSize()
                 // (59,999,968) with IllegalArgumentException, which threw partway through apply()
                 // and left the mood permanently stuck with a half-modified border.
-                border.setCenter(border.getCenter()); border.setSize(border.getMaxSize());
+                border.setCenter(border.getCenter()); border.setSize(Compat.maxBorderSize(border));
                 border.setDamageBuffer(0); border.setDamageAmount(0);
                 border.setWarningTime(0); // Instant red tint
                 border.setWarningDistance(59999900);
@@ -231,7 +232,8 @@ public class BloodMoon extends Mood implements Listener {
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.NETHER) {
                 for (LivingEntity entity : world.getLivingEntities()) {
-                    if (entity instanceof Monster monster && !monster.isDead()) {
+                    if (entity instanceof Monster && !entity.isDead()) {
+                        Monster monster = (Monster) entity;
                         if (monster.getPersistentDataContainer().has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
                             removeMobBuffs(monster); removedCount++;
                         }
@@ -254,12 +256,13 @@ public class BloodMoon extends Mood implements Listener {
             World world = player.getWorld();
             if (world.getEnvironment() != World.Environment.NORMAL && world.getEnvironment() != World.Environment.NETHER) continue;
             for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
-                if (entity instanceof Monster monster && !monster.isDead()) {
+                if (entity instanceof Monster && !entity.isDead()) {
+                    Monster monster = (Monster) entity;
                     if (monster.getPersistentDataContainer().has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
                         Location particleLoc = monster.getEyeLocation().subtract(0, 0.2, 0);
-                        world.spawnParticle(Particle.DUST, particleLoc, 3, 0.4, 0.4, 0.4, 0, dustOptions);
+                        world.spawnParticle(Compat.DUST, particleLoc, 3, 0.4, 0.4, 0.4, 0, dustOptions);
                         if (Math.random() < 0.05) {
-                            world.spawnParticle(Particle.SMOKE, monster.getLocation().add(0, 0.5, 0), 1, 0.2, 0.2, 0.2, 0.01);
+                            world.spawnParticle(Compat.SMOKE, monster.getLocation().add(0, 0.5, 0), 1, 0.2, 0.2, 0.2, 0.01);
                         }
                     }
                 }
@@ -288,12 +291,14 @@ public class BloodMoon extends Mood implements Listener {
         }
         Bukkit.broadcastMessage(ChatColor.DARK_RED + "[BloodMoon] " + ChatColor.RED + "A wave of bloodlust empowers the beasts of the night!");
 
-        PotionEffect speedFrenzy = new PotionEffect(PotionEffectType.SPEED, bmFrenzyDurationTicks, bmFrenzySpeedAmplifier, false, true, true);
+        PotionEffect speedFrenzy = new PotionEffect(Compat.SPEED, bmFrenzyDurationTicks, bmFrenzySpeedAmplifier, false, true, true);
 
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.NETHER) {
                 for (LivingEntity entity : world.getLivingEntities()) {
-                    if (entity instanceof Monster monster && !monster.isDead() && monster.getPersistentDataContainer().has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
+                    if (entity instanceof Monster && !entity.isDead()
+                            && entity.getPersistentDataContainer().has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
+                        Monster monster = (Monster) entity;
                         boolean nearPlayer = false;
                         for (Player player : Bukkit.getOnlinePlayers()) {
                             if (player.getWorld().equals(monster.getWorld()) && player.getLocation().distanceSquared(monster.getLocation()) < 64 * 64) {
@@ -303,7 +308,7 @@ public class BloodMoon extends Mood implements Listener {
                         }
                         if (nearPlayer) {
                             monster.addPotionEffect(speedFrenzy, true);
-                            monster.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, monster.getEyeLocation(), 5, 0.3, 0.3, 0.3, 0.1);
+                            monster.getWorld().spawnParticle(Compat.DAMAGE_INDICATOR, monster.getEyeLocation(), 5, 0.3, 0.3, 0.3, 0.1);
                         }
                     }
                 }
@@ -331,10 +336,10 @@ public class BloodMoon extends Mood implements Listener {
 
                 if (strikeLoc.getBlock().isPassable() && strikeLoc.clone().add(0,1,0).getBlock().isPassable()) {
                     world.strikeLightningEffect(strikeLoc); // Visual only lightning
-                    world.spawnParticle(Particle.DUST, strikeLoc, 50, 0.5, 0.5, 0.5, 0, redDust);
-                    world.spawnParticle(Particle.LAVA, strikeLoc, 10, 0.3, 0.3, 0.3, 0);
+                    world.spawnParticle(Compat.DUST, strikeLoc, 50, 0.5, 0.5, 0.5, 0, redDust);
+                    world.spawnParticle(Compat.LAVA, strikeLoc, 10, 0.3, 0.3, 0.3, 0);
                     if (player.getLocation().distanceSquared(strikeLoc) < 5*5 && random.nextDouble() < 0.3) {
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0), true);
+                        player.addPotionEffect(new PotionEffect(Compat.SLOWNESS, 60, 0), true);
                     }
                 }
             }
@@ -391,19 +396,31 @@ public class BloodMoon extends Mood implements Listener {
     }
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (!(event.getEntity() instanceof Monster monster)) return;
+        if (!(event.getEntity() instanceof Monster)) return;
+        Monster monster = (Monster) event.getEntity();
         World.Environment env = monster.getWorld().getEnvironment();
         if (env != World.Environment.NORMAL && env != World.Environment.NETHER) return;
 
-        CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
-        boolean shouldBuff = switch (reason) {
-            case NATURAL, REINFORCEMENTS, PATROL, RAID, DROWNED, SPAWNER, SLIME_SPLIT, SILVERFISH_BLOCK -> true;
-            default -> false;
-        };
+        boolean shouldBuff;
+        switch (event.getSpawnReason()) {
+            case NATURAL:
+            case REINFORCEMENTS:
+            case PATROL:
+            case RAID:
+            case DROWNED:
+            case SPAWNER:
+            case SLIME_SPLIT:
+            case SILVERFISH_BLOCK:
+                shouldBuff = true;
+                break;
+            default:
+                shouldBuff = false;
+                break;
+        }
         if (shouldBuff) {
             buffMob(monster);
 
-            if (reason == CreatureSpawnEvent.SpawnReason.NATURAL && spawnRateMultiplier > 1.0 && Math.random() < (spawnRateMultiplier - 1.0)) {
+            if (event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL && spawnRateMultiplier > 1.0 && Math.random() < (spawnRateMultiplier - 1.0)) {
                 Location loc = monster.getLocation();
                 for (int i = 0; i < 3; i++) {
                     Location potentialLoc = loc.clone().add(Math.random() * 6 - 3, 0, Math.random() * 6 - 3);
@@ -419,7 +436,8 @@ public class BloodMoon extends Mood implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
-        if (event.getEntity() instanceof Monster monster) {
+        if (event.getEntity() instanceof Monster) {
+            Monster monster = (Monster) event.getEntity();
             PersistentDataContainer data = monster.getPersistentDataContainer();
             if (data.has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
                 data.remove(BLOODMOON_HEALTH_KEY);
@@ -433,7 +451,7 @@ public class BloodMoon extends Mood implements Listener {
         PersistentDataContainer data = monster.getPersistentDataContainer();
         if (data.has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) return;
         boolean appliedBuff = false;
-        AttributeInstance maxHealth = monster.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance maxHealth = Compat.attribute(monster, Compat.MAX_HEALTH);
         if (maxHealth != null && !data.has(BLOODMOON_HEALTH_KEY, PersistentDataType.DOUBLE)) {
             double original = maxHealth.getBaseValue();
             double newHealth = Math.max(1.0, original * healthMultiplier);
@@ -442,7 +460,7 @@ public class BloodMoon extends Mood implements Listener {
             data.set(BLOODMOON_HEALTH_KEY, PersistentDataType.DOUBLE, original);
             appliedBuff = true;
         }
-        AttributeInstance attackDamage = monster.getAttribute(Attribute.ATTACK_DAMAGE);
+        AttributeInstance attackDamage = Compat.attribute(monster, Compat.ATTACK_DAMAGE);
         if (attackDamage != null && !data.has(BLOODMOON_DAMAGE_KEY, PersistentDataType.DOUBLE)) {
             double original = attackDamage.getBaseValue();
             double newDamage = original * damageMultiplier;
@@ -460,7 +478,7 @@ public class BloodMoon extends Mood implements Listener {
     private void removeMobBuffs(Monster monster) {
         PersistentDataContainer data = monster.getPersistentDataContainer();
         if (!data.has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) return;
-        AttributeInstance maxHealth = monster.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance maxHealth = Compat.attribute(monster, Compat.MAX_HEALTH);
         if (data.has(BLOODMOON_HEALTH_KEY, PersistentDataType.DOUBLE) && maxHealth != null) {
             double original = data.get(BLOODMOON_HEALTH_KEY, PersistentDataType.DOUBLE);
             maxHealth.setBaseValue(original);
@@ -468,7 +486,7 @@ public class BloodMoon extends Mood implements Listener {
                 monster.setHealth(original);
             }
         }
-        AttributeInstance attackDamage = monster.getAttribute(Attribute.ATTACK_DAMAGE);
+        AttributeInstance attackDamage = Compat.attribute(monster, Compat.ATTACK_DAMAGE);
         if (data.has(BLOODMOON_DAMAGE_KEY, PersistentDataType.DOUBLE) && attackDamage != null) {
             double original = data.get(BLOODMOON_DAMAGE_KEY, PersistentDataType.DOUBLE);
             attackDamage.setBaseValue(original);

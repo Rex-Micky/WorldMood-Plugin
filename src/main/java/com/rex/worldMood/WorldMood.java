@@ -12,6 +12,8 @@ public final class WorldMood extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
+        Compat.logSupportSummary();
+
         // Must run before any mood can start: puts back world settings that a crash left behind.
         worldStateGuard = new WorldStateGuard(this);
         worldStateGuard.restorePending();

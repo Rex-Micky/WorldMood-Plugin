@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
@@ -101,7 +102,7 @@ public class CalmSkies extends Mood implements Listener {
         }
 
         PotionEffect timedRegenEffect = new PotionEffect(
-                PotionEffectType.REGENERATION,
+                Compat.REGENERATION,
                 REGEN_DURATION_TICKS,
                 regenAmplifier,
                 true,
@@ -110,7 +111,7 @@ public class CalmSkies extends Mood implements Listener {
         );
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.removePotionEffect(PotionEffectType.REGENERATION);
+            player.removePotionEffect(Compat.REGENERATION);
             player.addPotionEffect(timedRegenEffect);
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, SoundCategory.PLAYERS, 0.6f, 1.5f);
             player.sendMessage(ChatColor.GREEN + "A calming, regenerative aura washes over you...");
@@ -128,7 +129,7 @@ public class CalmSkies extends Mood implements Listener {
                 }
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     if (p.getWorld().getEnvironment() == World.Environment.NORMAL && p.getLocation().getBlock().getLightFromSky() > 10) {
-                        p.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, p.getEyeLocation(), 1, 0.5, 0.5, 0.5, 0);
+                        p.getWorld().spawnParticle(Compat.HAPPY_VILLAGER, p.getEyeLocation(), 1, 0.5, 0.5, 0.5, 0);
                     }
                 }
             }
@@ -157,10 +158,10 @@ public class CalmSkies extends Mood implements Listener {
         originalMobSpawningRules.clear();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasPotionEffect(PotionEffectType.REGENERATION)) {
-                PotionEffect currentRegen = player.getPotionEffect(PotionEffectType.REGENERATION);
+            if (player.hasPotionEffect(Compat.REGENERATION)) {
+                PotionEffect currentRegen = player.getPotionEffect(Compat.REGENERATION);
                 if (currentRegen != null && currentRegen.getAmplifier() == regenAmplifier) {
-                    player.removePotionEffect(PotionEffectType.REGENERATION);
+                    player.removePotionEffect(Compat.REGENERATION);
                 }
             }
             player.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, SoundCategory.PLAYERS, 0.6f, 1.5f);

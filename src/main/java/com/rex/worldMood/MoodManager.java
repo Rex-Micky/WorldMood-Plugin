@@ -416,7 +416,9 @@ public class MoodManager implements Listener {
             return;
         }
         temporaryHudScoreboard = manager.getNewScoreboard();
-        Objective objective = temporaryHudScoreboard.registerNewObjective(SCOREBOARD_OBJECTIVE_NAME, Criteria.DUMMY, ChatColor.AQUA + "" + ChatColor.BOLD + "World Mood");
+        // Via Compat: the Criteria overload is 1.20.1+, so naming it here would break the 1.16.5 build.
+        Objective objective = Compat.registerObjective(temporaryHudScoreboard, SCOREBOARD_OBJECTIVE_NAME,
+                ChatColor.AQUA + "" + ChatColor.BOLD + "World Mood");
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
         List<String> lines = new ArrayList<>();

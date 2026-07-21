@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -88,7 +89,7 @@ public class LuckyDay extends Mood implements Listener {
 
         if (validTreasureItems.isEmpty()) {
             plugin.getLogger().info("[LuckyDay] No valid treasure items configured or loaded. Using defaults (Diamond, Emerald, Gold Ingot).");
-            validTreasureItems.addAll(List.of(Material.DIAMOND, Material.EMERALD, Material.GOLD_INGOT));
+            validTreasureItems.addAll(Arrays.asList(Material.DIAMOND, Material.EMERALD, Material.GOLD_INGOT));
         } else {
             plugin.getLogger().info("[LuckyDay] Loaded " + validTreasureItems.size() + " treasure items: " +
                     validTreasureItems.stream().map(Enum::name).collect(Collectors.joining(", ")));
@@ -122,7 +123,7 @@ public class LuckyDay extends Mood implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
         PotionEffect luckEffect = new PotionEffect(
-                PotionEffectType.LUCK,
+                Compat.LUCK,
                 LUCK_DURATION_TICKS,
                 LUCK_AMPLIFIER,
                 true,
@@ -131,7 +132,7 @@ public class LuckyDay extends Mood implements Listener {
         );
 
         for(Player p : plugin.getServer().getOnlinePlayers()){
-            p.removePotionEffect(PotionEffectType.LUCK);
+            p.removePotionEffect(Compat.LUCK);
             p.addPotionEffect(luckEffect);
 
             p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.PLAYERS, 1.0f, 1.5f);
@@ -145,10 +146,10 @@ public class LuckyDay extends Mood implements Listener {
         HandlerList.unregisterAll(this);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasPotionEffect(PotionEffectType.LUCK)) {
-                PotionEffect currentLuck = player.getPotionEffect(PotionEffectType.LUCK);
+            if (player.hasPotionEffect(Compat.LUCK)) {
+                PotionEffect currentLuck = player.getPotionEffect(Compat.LUCK);
                 if (currentLuck != null && currentLuck.getAmplifier() == LUCK_AMPLIFIER && currentLuck.getDuration() <= LUCK_DURATION_TICKS + 20) {
-                    player.removePotionEffect(PotionEffectType.LUCK);
+                    player.removePotionEffect(Compat.LUCK);
                 }
             }
         }
@@ -234,11 +235,11 @@ public class LuckyDay extends Mood implements Listener {
 
                 int specialPriceAdjustment = discountedPrice - originalPrice;
 
-                if (recipe.getSpecialPrice() != specialPriceAdjustment) {
-                    newRecipe.setSpecialPrice(specialPriceAdjustment);
+                if (Compat.getSpecialPrice(recipe) != specialPriceAdjustment) {
+                    Compat.setSpecialPrice(newRecipe, specialPriceAdjustment);
                     updated = true;
                 } else {
-                    newRecipe.setSpecialPrice(recipe.getSpecialPrice());
+                    Compat.setSpecialPrice(newRecipe, Compat.getSpecialPrice(recipe));
                 }
             }
             newRecipes.add(newRecipe);
@@ -268,11 +269,11 @@ public class LuckyDay extends Mood implements Listener {
                 MerchantRecipe newRecipe = new MerchantRecipe(recipe.getResult(), recipe.getUses(), recipe.getMaxUses(), recipe.hasExperienceReward(), recipe.getVillagerExperience(), recipe.getPriceMultiplier());
                 newRecipe.setIngredients(recipe.getIngredients());
 
-                if (recipe.getSpecialPrice() != 0) {
-                    newRecipe.setSpecialPrice(0);
+                if (Compat.getSpecialPrice(recipe) != 0) {
+                    Compat.setSpecialPrice(newRecipe, 0);
                     updated = true;
                 } else {
-                    newRecipe.setSpecialPrice(recipe.getSpecialPrice());
+                    Compat.setSpecialPrice(newRecipe, Compat.getSpecialPrice(recipe));
                 }
                 newRecipes.add(newRecipe);
             }
@@ -301,21 +302,21 @@ public class LuckyDay extends Mood implements Listener {
         World world = location.getWorld();
         if (world == null) return;
 
-        world.spawnParticle(Particle.TOTEM_OF_UNDYING, location, 20, 0.5, 0.5, 0.5, 0.15);
-        world.spawnParticle(Particle.FIREWORK, location, 25, 0.6, 0.6, 0.6, 0.08);
+        world.spawnParticle(Compat.TOTEM_OF_UNDYING, location, 20, 0.5, 0.5, 0.5, 0.15);
+        world.spawnParticle(Compat.FIREWORK, location, 25, 0.6, 0.6, 0.6, 0.08);
         world.playSound(location, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.NEUTRAL, 1.0f, 1.8f + random.nextFloat() * 0.2f);
-        world.playSound(location, Sound.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.BLOCKS, 1.0f, 1.5f + random.nextFloat() * 0.3f);
+        world.playSound(location, Compat.AMETHYST_CHIME, SoundCategory.BLOCKS, 1.0f, 1.5f + random.nextFloat() * 0.3f);
     }
 
     @Override
     public void onPlayerJoin(Player player) {
         if (plugin.getMoodManager().getCurrentMood() == this) {
             PotionEffect luckEffect = new PotionEffect(
-                    PotionEffectType.LUCK,
+                    Compat.LUCK,
                     LUCK_DURATION_TICKS,
                     LUCK_AMPLIFIER,
                     true, true, true);
-            player.removePotionEffect(PotionEffectType.LUCK);
+            player.removePotionEffect(Compat.LUCK);
             player.addPotionEffect(luckEffect);
             player.sendMessage(ChatColor.GOLD + "You've joined during a Lucky Day! You feel fortunate for the next 5 minutes.");
         }

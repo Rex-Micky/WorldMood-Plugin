@@ -4,9 +4,8 @@ plugins {
 }
 
 group = 'com.rex'
-version = '1.1.0'
+version = '1.2.0'
 
-// Pin the jar name so it doesn't inherit whatever the checkout folder happens to be called.
 base {
     archivesName = 'WorldMood'
 }
@@ -23,39 +22,77 @@ repositories {
     }
 }
 
-dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
-}
+// ---------------------------------------------------------------------------
+// TWO BUILDS FROM ONE SOURCE TREE.
+//
+//   WorldMood-<v>.jar          Java 17 bytecode, built against the 1.20.1 API -> runs 1.20.x - 1.21.x
+//   WorldMood-<v>-legacy.jar   Java 8  bytecode, built against the 1.16.5 API -> runs 1.16.5 - 1.19.x
+//
+// The source is identical. It compiles against both APIs because every constant that Mojang
+// renamed or introduced is resolved BY NAME at runtime in Compat, so the code never mentions a
+// symbol that only one of the two APIs has.
+//
+// The split exists for two reasons that a single jar cannot solve:
+//   1. Bytecode. 1.16.5-1.17 servers run on Java 8/11/16 JVMs, which physically cannot load
+//      Java 17 class files.
+//   2. api-version. It must honestly declare the oldest API each jar targets; a modern server
+//      applies legacy conversion behaviour when it sees an old value.
+// ---------------------------------------------------------------------------
 
-// Single source of truth for the Java version. There used to be two conflicting `java {}` blocks
-// (17 and 21); the later one silently won, so the jar required Java 21 while the docs said 17.
-def targetJavaVersion = 21
-
-java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+sourceSets {
+    legacy {
+        java.srcDirs = sourceSets.main.java.srcDirs
+        resources.srcDirs = sourceSets.main.resources.srcDirs
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
+dependencies {
+    compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    legacyCompileOnly 'org.spigotmc:spigot-api:1.16.5-R0.1-SNAPSHOT'
+
+    // @NotNull / @Nullable on the command overrides. Newer spigot-api pulls this in transitively
+    // and the older ones do not, so declare it explicitly for both. compileOnly - never shipped.
+    compileOnly 'org.jetbrains:annotations:24.1.0'
+    legacyCompileOnly 'org.jetbrains:annotations:24.1.0'
+}
+
+tasks.named('compileJava') {
     options.encoding = 'UTF-8'
-    options.release.set(targetJavaVersion)
+    options.release.set(17)
+}
+
+tasks.named('compileLegacyJava') {
+    options.encoding = 'UTF-8'
+    options.release.set(8)
+    // Java 8 has no pattern-matching instanceof, switch expressions, List.of or Set.of. If this
+    // task starts failing, someone used a modern language feature in the shared source.
+}
+
+processResources {
+    filesMatching('plugin.yml') {
+        expand(version: project.version, apiVersion: '1.20')
+    }
+}
+
+tasks.named('processLegacyResources') {
+    filesMatching('plugin.yml') {
+        expand(version: project.version, apiVersion: '1.16')
+    }
+}
+
+tasks.register('legacyJar', Jar) {
+    group = 'build'
+    description = 'Builds the Java 8 jar for Minecraft 1.16.5 - 1.19.x'
+    archiveClassifier.set('legacy')
+    from sourceSets.legacy.output
+}
+
+tasks.named('build') {
+    dependsOn 'legacyJar'
 }
 
 tasks {
     runServer {
         minecraftVersion("1.21")
-    }
-}
-
-processResources {
-    def props = [version: version]
-    inputs.properties props
-    filteringCharset 'UTF-8'
-    filesMatching('plugin.yml') {
-        expand props
     }
 }

@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -26,26 +27,13 @@ public class ShadowVeil extends Mood {
     private static final double SPOOKY_SOUND_CHANCE = 0.15;
     private static final double CAVE_DARKNESS_CHANCE = 0.03;
     private static final int CAVE_DARKNESS_DURATION = 40;
-    private static PotionEffectType darknessPotionEffectType = null;
-    private static Sound sculkShriekSound = null;
-    private static boolean versionSpecificsChecked = false;
+    // Both resolved once by Compat. DARKNESS is null before 1.19, which is the signal to fall
+    // back to short blindness; SCULK_SHRIEK degrades to an older sound rather than going silent.
+    private static final PotionEffectType darknessPotionEffectType = Compat.DARKNESS;
+    private static final Sound sculkShriekSound = Compat.SCULK_SHRIEK;
 
     public ShadowVeil(WorldMood plugin) {
         super(plugin, "shadow_veil");
-
-        if (!versionSpecificsChecked) {
-            try {
-                darknessPotionEffectType = PotionEffectType.DARKNESS;
-            } catch (NoSuchFieldError e) {
-
-            }
-            try {
-                sculkShriekSound = Sound.valueOf("BLOCK_SCULK_SHRIEKER_SHRIEK");
-            } catch (IllegalArgumentException e) {
-                sculkShriekSound = Sound.BLOCK_SCULK_SENSOR_CLICKING;
-            }
-            versionSpecificsChecked = true;
-        }
         loadConfigValues();
     }
 
@@ -110,13 +98,13 @@ public class ShadowVeil extends Mood {
     @Override
     public void remove() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            PotionEffect blindness = player.getPotionEffect(PotionEffectType.BLINDNESS);
+            PotionEffect blindness = player.getPotionEffect(Compat.BLINDNESS);
             if (blindness != null && blindness.getDuration() <= blindnessDurationTicks + 20 && blindness.getAmplifier() == 0) {
-                player.removePotionEffect(PotionEffectType.BLINDNESS);
+                player.removePotionEffect(Compat.BLINDNESS);
             }
-            PotionEffect invis = player.getPotionEffect(PotionEffectType.INVISIBILITY);
+            PotionEffect invis = player.getPotionEffect(Compat.INVISIBILITY);
             if (invis != null && invis.getDuration() <= invisibilityDurationTicks + 20 && invis.getAmplifier() == 0) {
-                player.removePotionEffect(PotionEffectType.INVISIBILITY);
+                player.removePotionEffect(Compat.INVISIBILITY);
             }
             if (darknessPotionEffectType != null && player.hasPotionEffect(darknessPotionEffectType)) {
                 PotionEffect dark = player.getPotionEffect(darknessPotionEffectType);
@@ -138,14 +126,14 @@ public class ShadowVeil extends Mood {
                 if (random.nextDouble() < effectChance) {
                     boolean applyBlindness = random.nextBoolean();
                     if (applyBlindness) {
-                        PotionEffect blindEffect = new PotionEffect(PotionEffectType.BLINDNESS, blindnessDurationTicks, 0, true, false, true);
+                        PotionEffect blindEffect = new PotionEffect(Compat.BLINDNESS, blindnessDurationTicks, 0, true, false, true);
                         player.addPotionEffect(blindEffect, true);
-                        player.getWorld().spawnParticle(Particle.SQUID_INK, player.getEyeLocation(), 20, 0.3, 0.3, 0.3, 0.03);
+                        player.getWorld().spawnParticle(Compat.SQUID_INK, player.getEyeLocation(), 20, 0.3, 0.3, 0.3, 0.03);
                         player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, SoundCategory.PLAYERS, 0.25f, 1.9f);
                     } else {
-                        PotionEffect invisEffect = new PotionEffect(PotionEffectType.INVISIBILITY, invisibilityDurationTicks, 0, true, true, true);
+                        PotionEffect invisEffect = new PotionEffect(Compat.INVISIBILITY, invisibilityDurationTicks, 0, true, true, true);
                         player.addPotionEffect(invisEffect, true);
-                        player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 15, 0.4, 0.7, 0.4, 0.02);
+                        player.getWorld().spawnParticle(Compat.SMOKE, player.getLocation().add(0, 1, 0), 15, 0.4, 0.7, 0.4, 0.02);
                         player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 0.4f, 1.6f);
                     }
                 }
@@ -170,8 +158,8 @@ public class ShadowVeil extends Mood {
                         case 0: soundToPlay = Sound.AMBIENT_CAVE; break;
                         case 1: soundToPlay = Sound.ENTITY_ENDERMAN_AMBIENT; volume *= 0.7f; break;
                         case 2:
-                            if (darknessPotionEffectType != null && Sound.ENTITY_WARDEN_AMBIENT != null) {
-                                soundToPlay = Sound.ENTITY_WARDEN_AMBIENT; volume *= 0.15f; pitch *= 0.7f;
+                            if (darknessPotionEffectType != null && Compat.WARDEN_AMBIENT != null) {
+                                soundToPlay = Compat.WARDEN_AMBIENT; volume *= 0.15f; pitch *= 0.7f;
                             } else {
                                 soundToPlay = Sound.AMBIENT_BASALT_DELTAS_MOOD;
                             }
@@ -186,11 +174,14 @@ public class ShadowVeil extends Mood {
                 if (blockAtPlayer.getLightLevel() < 6) {
                     int particleCount = 1 + random.nextInt(2);
                     double spread = 0.7;
-                    if (random.nextBoolean()) {
-                        Particle.DustTransition dustTransition = new Particle.DustTransition(Color.fromRGB(25, 25, 35), Color.fromRGB(5, 5, 10), 0.8f + random.nextFloat() * 0.4f);
-                        world.spawnParticle(Particle.DUST_COLOR_TRANSITION, loc.add(random.nextGaussian()*0.5, 1 + random.nextDouble()*0.5, random.nextGaussian()*0.5), particleCount, spread, spread, spread, 0, dustTransition);
+                    // Particle.DustTransition is 1.17+, so it is built reflectively and comes back
+                    // null on older servers; those simply always take the ASH branch below.
+                    Object dustTransition = Compat.dustTransition(
+                            Color.fromRGB(25, 25, 35), Color.fromRGB(5, 5, 10), 0.8f + random.nextFloat() * 0.4f);
+                    if (random.nextBoolean() && dustTransition != null && Compat.DUST_COLOR_TRANSITION != null) {
+                        Compat.spawn(world, Compat.DUST_COLOR_TRANSITION, loc.add(random.nextGaussian()*0.5, 1 + random.nextDouble()*0.5, random.nextGaussian()*0.5), particleCount, spread, spread, spread, 0, dustTransition);
                     } else {
-                        world.spawnParticle(Particle.ASH, loc.add(random.nextGaussian()*0.5, 0.8 + random.nextDouble()*0.5, random.nextGaussian()*0.5), particleCount, spread*0.8, spread*0.5, spread*0.8, 0.01);
+                        Compat.spawn(world, Compat.ASH, loc.add(random.nextGaussian()*0.5, 0.8 + random.nextDouble()*0.5, random.nextGaussian()*0.5), particleCount, spread*0.8, spread*0.5, spread*0.8, 0.01);
                     }
 
                     if (darknessPotionEffectType != null && random.nextDouble() < CAVE_DARKNESS_CHANCE) {
@@ -198,7 +189,7 @@ public class ShadowVeil extends Mood {
                         player.addPotionEffect(darknessEffect, true);
                         world.playSound(loc, sculkShriekSound, SoundCategory.AMBIENT, 0.6f, 0.7f + random.nextFloat() * 0.2f);
                     } else if (darknessPotionEffectType == null && random.nextDouble() < CAVE_DARKNESS_CHANCE / 2) {
-                        PotionEffect shortBlind = new PotionEffect(PotionEffectType.BLINDNESS, CAVE_DARKNESS_DURATION / 2, 0, true, false, false);
+                        PotionEffect shortBlind = new PotionEffect(Compat.BLINDNESS, CAVE_DARKNESS_DURATION / 2, 0, true, false, false);
                         player.addPotionEffect(shortBlind, true);
                         world.playSound(loc, Sound.BLOCK_STONE_BUTTON_CLICK_ON, SoundCategory.AMBIENT, 0.5f, 0.6f);
                     }

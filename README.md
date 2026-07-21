@@ -40,16 +40,29 @@ The main command is `/worldmood`, aliased to `/wm`.
 | :---- | :---- | :---- |
 | `worldmood.admin` | Grants access to all `/worldmood` commands. | `op` |
 
-## **⚙️ Requirements**
+## **⚙️ Which download do I need?**
 
-* **Spigot / Paper 1.21+** — the plugin uses APIs that do not exist on older servers and will
-  correctly refuse to load on them.
-* **Java 21+**
-* No dependencies, no database, no external calls.
+There are two jars. **Pick the one that matches your server — do not install both.**
+
+| Your Minecraft version | Download | Needs |
+| :---- | :---- | :---- |
+| **1.20 – 1.21.x** | `WorldMood-x.y.z.jar` | Java 17+ |
+| **1.16.5 – 1.19.x** | `WorldMood-x.y.z-legacy.jar` | Java 8+ |
+
+Same features, same config, same commands. They exist as two files because servers older than 1.18
+run on Java 8–16, which cannot load modern Java bytecode at all — one jar physically cannot cover
+both eras.
+
+On older servers a few *visual* extras are unavailable and the plugin substitutes the nearest
+equivalent automatically: the Darkness effect and the Sonic Boom particle (1.19+), the colour-fading
+dust particle (1.17+), and villager trade discounts (1.18+). Everything else behaves identically,
+and the plugin logs exactly what your version does and does not support when it starts.
+
+Spigot and Paper are both supported. No dependencies, no database, no external calls.
 
 ## **📥 Installation**
 
-1. Download `WorldMood.jar` from the [Releases](https://github.com/Rex-Micky/WorldMood-Plugin/releases) page.
+1. Download the jar for your version from the [Releases](https://github.com/Rex-Micky/WorldMood-Plugin/releases) page.
 2. Drop it into your server's `/plugins` folder.
 3. Restart the server.
 4. Edit `/plugins/WorldMood/config.yml` to taste, then `/wm reload`.

@@ -1,10 +1,10 @@
 name: WorldMood
 version: '${version}'
 main: com.rex.worldMood.WorldMood
-# The code uses Criteria.DUMMY, Particle.DUST and PotionEffectType.SLOWNESS, none of which exist
-# on older servers. Declaring an older api-version let the plugin LOAD on 1.17-1.20 and then throw
-# NoSuchFieldError the moment a mood started. Failing to load is the honest outcome.
-api-version: '1.21'
+# Injected by the build: '1.20' for the main jar, '1.16' for the -legacy jar. Everything that was
+# renamed or added across those versions is resolved by name at runtime in Compat, so each jar can
+# honestly declare the oldest API it supports.
+api-version: '${apiVersion}'
 description: Seven world moods that change how your server plays - mobs, loot, light and weather.
 author: RexMicky
 website: https://studio.rexmicky.dev

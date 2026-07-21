@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -120,7 +121,7 @@ public class InfernalHeat extends Mood implements Listener {
                 if (random.nextDouble() < 0.15) {
                     player.playSound(player.getLocation(), Sound.BLOCK_FIRE_AMBIENT, SoundCategory.PLAYERS, 0.4f, 1.5f);
                 }
-                player.getWorld().spawnParticle(Particle.FLAME, player.getEyeLocation().subtract(0, 0.2, 0), 2, 0.1, 0.2, 0.1, 0.01);
+                player.getWorld().spawnParticle(Compat.FLAME, player.getEyeLocation().subtract(0, 0.2, 0), 2, 0.1, 0.2, 0.1, 0.01);
             }
         }
     }
@@ -143,7 +144,7 @@ public class InfernalHeat extends Mood implements Listener {
     }
 
     private boolean isPlayerProtected(Player player) {
-        if (player.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE)) {
+        if (player.hasPotionEffect(Compat.FIRE_RESISTANCE)) {
             return true;
         }
 
@@ -154,10 +155,10 @@ public class InfernalHeat extends Mood implements Listener {
         ItemStack boots = inv.getBoots();
 
         int fireProtLevel = 0;
-        if (helmet != null) fireProtLevel += helmet.getEnchantmentLevel(Enchantment.FIRE_PROTECTION);
-        if (chestplate != null) fireProtLevel += chestplate.getEnchantmentLevel(Enchantment.FIRE_PROTECTION);
-        if (leggings != null) fireProtLevel += leggings.getEnchantmentLevel(Enchantment.FIRE_PROTECTION);
-        if (boots != null) fireProtLevel += boots.getEnchantmentLevel(Enchantment.FIRE_PROTECTION);
+        if (helmet != null) fireProtLevel += Compat.enchantLevel(helmet, Compat.FIRE_PROTECTION);
+        if (chestplate != null) fireProtLevel += Compat.enchantLevel(chestplate, Compat.FIRE_PROTECTION);
+        if (leggings != null) fireProtLevel += Compat.enchantLevel(leggings, Compat.FIRE_PROTECTION);
+        if (boots != null) fireProtLevel += Compat.enchantLevel(boots, Compat.FIRE_PROTECTION);
 
         if (fireProtLevel > 0) {
             return true;

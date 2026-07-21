@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -36,18 +37,34 @@ public class ProsperousWinds extends Mood implements Listener {
     private static final int WIND_EFFECT_INTERVAL_SECONDS = 2;
     private static final double WIND_EFFECT_CHANCE_PER_PLAYER = 0.15;
 
-    private static final Set<Material> ORE_MATERIALS = Set.of(
-            Material.COAL_ORE, Material.DEEPSLATE_COAL_ORE,
-            Material.COPPER_ORE, Material.DEEPSLATE_COPPER_ORE,
-            Material.IRON_ORE, Material.DEEPSLATE_IRON_ORE,
-            Material.GOLD_ORE, Material.DEEPSLATE_GOLD_ORE,
-            Material.REDSTONE_ORE, Material.DEEPSLATE_REDSTONE_ORE,
-            Material.LAPIS_ORE, Material.DEEPSLATE_LAPIS_ORE,
-            Material.DIAMOND_ORE, Material.DEEPSLATE_DIAMOND_ORE,
-            Material.EMERALD_ORE, Material.DEEPSLATE_EMERALD_ORE,
-            Material.NETHER_QUARTZ_ORE, Material.NETHER_GOLD_ORE,
-            Material.ANCIENT_DEBRIS
+    /**
+     * Resolved BY NAME, not by constant: the deepslate and copper ores arrived in 1.17, so naming
+     * {@code Material.DEEPSLATE_COAL_ORE} directly would throw NoSuchFieldError while loading this
+     * class on 1.16.5 — killing the mood before it ran once. Unknown names are simply skipped.
+     */
+    private static final Set<Material> ORE_MATERIALS = materialSet(
+            "COAL_ORE", "DEEPSLATE_COAL_ORE",
+            "COPPER_ORE", "DEEPSLATE_COPPER_ORE",
+            "IRON_ORE", "DEEPSLATE_IRON_ORE",
+            "GOLD_ORE", "DEEPSLATE_GOLD_ORE",
+            "REDSTONE_ORE", "DEEPSLATE_REDSTONE_ORE",
+            "LAPIS_ORE", "DEEPSLATE_LAPIS_ORE",
+            "DIAMOND_ORE", "DEEPSLATE_DIAMOND_ORE",
+            "EMERALD_ORE", "DEEPSLATE_EMERALD_ORE",
+            "NETHER_QUARTZ_ORE", "NETHER_GOLD_ORE",
+            "ANCIENT_DEBRIS"
     );
+
+    private static Set<Material> materialSet(String... names) {
+        Set<Material> materials = EnumSet.noneOf(Material.class);
+        for (String name : names) {
+            Material material = Material.getMaterial(name);
+            if (material != null) {
+                materials.add(material);
+            }
+        }
+        return Collections.unmodifiableSet(materials);
+    }
 
     private static final Sound ALT_WIND_SOUND = Sound.ITEM_ELYTRA_FLYING;
 
@@ -140,7 +157,7 @@ public class ProsperousWinds extends Mood implements Listener {
                 double offsetY = 0.3 + random.nextDouble() * 1.0;
                 double offsetZ = 2 + random.nextDouble() * 3;
                 Location particleLoc = player.getEyeLocation().add(random.nextGaussian() * 3, random.nextDouble() * 2, random.nextGaussian() * 3);
-                Particle particleType = random.nextBoolean() ? Particle.CLOUD : Particle.SPORE_BLOSSOM_AIR;
+                Particle particleType = random.nextBoolean() ? Compat.CLOUD : Compat.SPORE_BLOSSOM_AIR;
                 world.spawnParticle(particleType, particleLoc, particleCount, offsetX, offsetY, offsetZ, 0.005);
             }
         }
@@ -171,8 +188,8 @@ public class ProsperousWinds extends Mood implements Listener {
                 }
             }
         }
-        block.getWorld().spawnParticle(Particle.COMPOSTER, block.getLocation().add(0.5, 0.7, 0.5), 10, 0.3, 0.3, 0.3, 0.05);
-        block.getWorld().playSound(block.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.BLOCKS, 0.9f, 1.6f + random.nextFloat() * 0.2f);
+        block.getWorld().spawnParticle(Compat.COMPOSTER, block.getLocation().add(0.5, 0.7, 0.5), 10, 0.3, 0.3, 0.3, 0.05);
+        block.getWorld().playSound(block.getLocation(), Compat.AMETHYST_CHIME, SoundCategory.BLOCKS, 0.9f, 1.6f + random.nextFloat() * 0.2f);
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -196,7 +213,7 @@ public class ProsperousWinds extends Mood implements Listener {
                 for(ItemStack extraDrop : extraDrops) {
                     entity.getWorld().dropItemNaturally(entity.getLocation(), extraDrop);
                 }
-                entity.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getEyeLocation(), 10, 0.4, 0.4, 0.4, 0.05);
+                entity.getWorld().spawnParticle(Compat.HAPPY_VILLAGER, entity.getEyeLocation(), 10, 0.4, 0.4, 0.4, 0.05);
                 entity.getWorld().playSound(entity.getLocation(), Sound.ENTITY_CHICKEN_EGG, SoundCategory.NEUTRAL, 1.0f, 1.0f + random.nextFloat() * 0.3f);
             }
         }

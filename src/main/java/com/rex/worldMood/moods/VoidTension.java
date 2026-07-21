@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
@@ -86,12 +87,21 @@ public class VoidTension extends Mood implements Listener {
         this.VOID_GENERIC_SPEED_KEY = new NamespacedKey(plugin, "wm_vt_speed_orig");
 
         if (!versionSpecificsInitialized) {
-            try { PURE_DARKNESS_EFFECT = PotionEffectType.DARKNESS; }
-            catch (NoSuchFieldError e) { this.plugin.getLogger().info("[VoidTension] PotionEffectType.DARKNESS not found (server pre-1.19). Void Grasp anomaly will use Blindness."); }
-            try { SONIC_BOOM_PARTICLE = Particle.SONIC_BOOM; }
-            catch (NoSuchFieldError e) { this.plugin.getLogger().info("[VoidTension] Particle.SONIC_BOOM not found (server pre-1.19). Void Shriek anomaly will use EXPLOSION_HUGE."); }
-            try { SCULK_MATERIAL = Material.SCULK; }
-            catch (NoSuchFieldError e) { this.plugin.getLogger().info("[VoidTension] Material.SCULK not found (server pre-1.19). Unstable Ground anomaly will have fewer block types.");}
+            // Compat resolves these by name and returns null when the server is too old, so no
+            // try/catch is needed. Material.SCULK (1.19+) is looked up by name for the same reason.
+            PURE_DARKNESS_EFFECT = Compat.DARKNESS;
+            SONIC_BOOM_PARTICLE = Compat.SONIC_BOOM;
+            SCULK_MATERIAL = Material.getMaterial("SCULK");
+
+            if (PURE_DARKNESS_EFFECT == null) {
+                this.plugin.getLogger().info("[VoidTension] Darkness effect unavailable (pre-1.19); Void Grasp uses Blindness.");
+            }
+            if (SONIC_BOOM_PARTICLE == null) {
+                this.plugin.getLogger().info("[VoidTension] Sonic Boom particle unavailable (pre-1.19); Void Shriek uses an explosion instead.");
+            }
+            if (SCULK_MATERIAL == null) {
+                this.plugin.getLogger().info("[VoidTension] Sculk unavailable (pre-1.19); Unstable Ground has fewer block types.");
+            }
             versionSpecificsInitialized = true;
         }
 
@@ -233,7 +243,7 @@ public class VoidTension extends Mood implements Listener {
                 // Persist BEFORE mutating — see WorldStateGuard.
                 plugin.getWorldStateGuard().recordBorder(world);
                 // See BloodMoon: setSize() above getMaxSize() throws IllegalArgumentException.
-                border.setCenter(border.getCenter()); border.setSize(border.getMaxSize()); border.setDamageBuffer(0);
+                border.setCenter(border.getCenter()); border.setSize(Compat.maxBorderSize(border)); border.setDamageBuffer(0);
                 border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(59999900);
             }
         }
@@ -245,8 +255,8 @@ public class VoidTension extends Mood implements Listener {
                     if (!data.has(VOID_NAMED_KEY, PersistentDataType.BYTE)) {
                         applyVoidName(entity); data.set(VOID_NAMED_KEY, PersistentDataType.BYTE, (byte)1);
                     }
-                    if (entity instanceof Monster monster) {
-                        if (!data.has(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE)) { applySpeedBuff(monster); }
+                    if (entity instanceof Monster) {
+                        if (!data.has(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE)) { applySpeedBuff((Monster) entity); }
                     }
                 }
             }
@@ -308,17 +318,18 @@ public class VoidTension extends Mood implements Listener {
                 World world = player.getWorld();
                 if (world.getEnvironment() != World.Environment.NORMAL && world.getEnvironment() != World.Environment.NETHER && world.getEnvironment() != World.Environment.THE_END) continue;
                 for (Entity entity : player.getNearbyEntities(32, 16, 32)) {
-                    if (entity instanceof Monster monster && !monster.isDead()) {
+                    if (entity instanceof Monster && !entity.isDead()) {
+                        Monster monster = (Monster) entity;
                         if (monster.getPersistentDataContainer().has(VOID_NAMED_KEY, PersistentDataType.BYTE)) {
                             if (random.nextDouble() < MOB_TELEPORT_CHANCE_PER_MOB) {
                                 Location currentLocation = monster.getLocation();
                                 Location targetLocation = findSafeTeleportLocation(currentLocation, MOB_TELEPORT_MAX_DISTANCE);
                                 if (targetLocation != null && targetLocation.distanceSquared(currentLocation) > 4) {
                                     world.playSound(currentLocation, Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.HOSTILE, 0.7f, 0.8f);
-                                    world.spawnParticle(Particle.PORTAL, currentLocation.add(0, monster.getHeight() / 2.0, 0), 30, 0.3, 0.5, 0.3, 0.15);
+                                    world.spawnParticle(Compat.PORTAL, currentLocation.add(0, monster.getHeight() / 2.0, 0), 30, 0.3, 0.5, 0.3, 0.15);
                                     monster.teleport(targetLocation);
                                     world.playSound(targetLocation, Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.HOSTILE, 0.9f, 1.1f);
-                                    world.spawnParticle(Particle.PORTAL, targetLocation.add(0, monster.getHeight() / 2.0, 0), 35, 0.3, 0.5, 0.3, 0.15);
+                                    world.spawnParticle(Compat.PORTAL, targetLocation.add(0, monster.getHeight() / 2.0, 0), 35, 0.3, 0.5, 0.3, 0.15);
                                 }
                             }
                         }
@@ -356,12 +367,12 @@ public class VoidTension extends Mood implements Listener {
 
         plugin.getLogger().finer("[VoidTension Anomaly] Executing Anti-Gravity Pulse near " + targetPlayer.getName());
         world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 1.5f, 0.4f);
-        world.spawnParticle(Particle.PORTAL, center, 180, 4.5, 1.8, 4.5, 0.25);
-        world.spawnParticle(Particle.REVERSE_PORTAL, center, 120, 4.5, 1.8, 4.5, 0.15);
+        world.spawnParticle(Compat.PORTAL, center, 180, 4.5, 1.8, 4.5, 0.25);
+        world.spawnParticle(Compat.REVERSE_PORTAL, center, 120, 4.5, 1.8, 4.5, 0.15);
         for (Player p : getNearbyPlayers(center, 12)) {
             if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, anomalyAntiGravityPulseDurationTicks, 1), true);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, anomalyAntiGravityPulseDurationTicks * 2 + 60, 0), true);
+                p.addPotionEffect(new PotionEffect(Compat.LEVITATION, anomalyAntiGravityPulseDurationTicks, 1), true);
+                p.addPotionEffect(new PotionEffect(Compat.SLOW_FALLING, anomalyAntiGravityPulseDurationTicks * 2 + 60, 0), true);
                 p.sendMessage(ChatColor.LIGHT_PURPLE + "The world lurches, pulling you upwards!");
             }
         }
@@ -376,16 +387,16 @@ public class VoidTension extends Mood implements Listener {
         plugin.getLogger().finer("[VoidTension Anomaly] Executing Void Grasp near " + targetPlayer.getName());
         world.playSound(center, Sound.ENTITY_EVOKER_PREPARE_WOLOLO, SoundCategory.PLAYERS, 0.9f, 0.6f);
         world.playSound(center, Sound.BLOCK_CONDUIT_DEACTIVATE, SoundCategory.PLAYERS, 1.1f, 0.4f);
-        world.spawnParticle(Particle.SQUID_INK, center, 250, 6.5, 2.5, 6.5, 0);
-        world.spawnParticle(Particle.CRIT, center, 150, 6.5, 2.5, 6.5, 0.1);
+        world.spawnParticle(Compat.SQUID_INK, center, 250, 6.5, 2.5, 6.5, 0);
+        world.spawnParticle(Compat.CRIT, center, 150, 6.5, 2.5, 6.5, 0.1);
         for (Player p : getNearbyPlayers(center, 15)) {
             if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, anomalyVoidGraspDurationTicks, 2), true);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, anomalyVoidGraspDurationTicks, 1), true);
+                p.addPotionEffect(new PotionEffect(Compat.SLOWNESS, anomalyVoidGraspDurationTicks, 2), true);
+                p.addPotionEffect(new PotionEffect(Compat.WEAKNESS, anomalyVoidGraspDurationTicks, 1), true);
                 if (PURE_DARKNESS_EFFECT != null) {
                     p.addPotionEffect(new PotionEffect(PURE_DARKNESS_EFFECT, anomalyVoidGraspDurationTicks / 2, 0), true);
                 } else {
-                    p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, (anomalyVoidGraspDurationTicks / 4), 0), true); // Shorter fallback
+                    p.addPotionEffect(new PotionEffect(Compat.BLINDNESS, (anomalyVoidGraspDurationTicks / 4), 0), true); // Shorter fallback
                 }
                 p.sendMessage(ChatColor.DARK_PURPLE + "An unseen force grasps at you...");
             }
@@ -401,10 +412,10 @@ public class VoidTension extends Mood implements Listener {
         Location soundLoc = center.clone().add(random.nextGaussian() * 7, random.nextGaussian() * 3.5, random.nextGaussian() * 7);
         world.playSound(soundLoc, Sound.ENTITY_ENDERMAN_STARE, SoundCategory.AMBIENT, 1.3f, random.nextFloat() * 0.3f + 0.5f);
         world.playSound(soundLoc, Sound.BLOCK_GLASS_BREAK, SoundCategory.BLOCKS, 0.6f, 0.7f);
-        world.spawnParticle(Particle.SMOKE, soundLoc, 20, 0.3, 0.3, 0.3, 0.03);
-        world.spawnParticle(Particle.CRIT, soundLoc, 25, 0.6, 0.6, 0.6, 0.12);
+        world.spawnParticle(Compat.SMOKE, soundLoc, 20, 0.3, 0.3, 0.3, 0.03);
+        world.spawnParticle(Compat.CRIT, soundLoc, 25, 0.6, 0.6, 0.6, 0.12);
         for (Player p : getNearbyPlayers(center, 10)) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, anomalyRealityTearDurationTicks, 0), true);
+            p.addPotionEffect(new PotionEffect(Compat.NAUSEA, anomalyRealityTearDurationTicks, 0), true);
         }
         targetPlayer.sendMessage(ChatColor.GRAY + "You hear something... unsettling nearby.");
         return true;
@@ -420,11 +431,11 @@ public class VoidTension extends Mood implements Listener {
         if (targetTeleportLoc != null && targetTeleportLoc.distanceSquared(playerOriginalLoc) > 9) {
             targetPlayer.teleport(targetTeleportLoc);
             world.playSound(targetTeleportLoc, Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 1.0f, 0.7f);
-            world.spawnParticle(Particle.PORTAL, targetTeleportLoc, 40, 0.5, 0.8, 0.5, 0.1);
-            targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, anomalySpatialWarpDurationTicks, 0), true);
+            world.spawnParticle(Compat.PORTAL, targetTeleportLoc, 40, 0.5, 0.8, 0.5, 0.1);
+            targetPlayer.addPotionEffect(new PotionEffect(Compat.NAUSEA, anomalySpatialWarpDurationTicks, 0), true);
             targetPlayer.sendMessage(ChatColor.LIGHT_PURPLE + "You flicker through space!");
         } else {
-            targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, anomalySpatialWarpDurationTicks, 0), true);
+            targetPlayer.addPotionEffect(new PotionEffect(Compat.NAUSEA, anomalySpatialWarpDurationTicks, 0), true);
             targetPlayer.playSound(playerOriginalLoc, Sound.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 0.5f, 0.5f);
             targetPlayer.sendMessage(ChatColor.GRAY + "Space warps around you momentarily.");
         }
@@ -439,11 +450,11 @@ public class VoidTension extends Mood implements Listener {
         world.playSound(center, Sound.ENTITY_GHAST_SCREAM, SoundCategory.AMBIENT, 1.2f, 0.5f);
         world.playSound(center, Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.AMBIENT, 0.6f, 0.6f);
         if (SONIC_BOOM_PARTICLE != null) world.spawnParticle(SONIC_BOOM_PARTICLE, center, 1, 0,0,0,0);
-        else world.spawnParticle(Particle.EXPLOSION, center, 1,0,0,0,0);
+        else world.spawnParticle(Compat.EXPLOSION, center, 1,0,0,0,0);
         for (Player p : getNearbyPlayers(center, 20)) {
             if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, anomalyVoidShriekDurationTicks, 1), true);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, anomalyVoidShriekDurationTicks, 1), true);
+                p.addPotionEffect(new PotionEffect(Compat.SLOWNESS, anomalyVoidShriekDurationTicks, 1), true);
+                p.addPotionEffect(new PotionEffect(Compat.MINING_FATIGUE, anomalyVoidShriekDurationTicks, 1), true);
                 p.sendMessage(ChatColor.DARK_RED + "A piercing shriek echoes from the void!");
             }
         }
@@ -456,15 +467,15 @@ public class VoidTension extends Mood implements Listener {
         if (world == null || !isValidAnomalyWorld(world)) return false;
         plugin.getLogger().finer("[VoidTension Anomaly] Executing Unstable Energy on " + targetPlayer.getName());
         world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, SoundCategory.PLAYERS, 1.0f, 1.8f);
-        world.spawnParticle(Particle.ENCHANTED_HIT, center, 120, 3.5, 1.5, 3.5, 0.15);
+        world.spawnParticle(Compat.ENCHANTED_HIT, center, 120, 3.5, 1.5, 3.5, 0.15);
         PotionEffectType randomEffectType; int amplifier = 0;
         switch(random.nextInt(6)) {
-            case 0: randomEffectType = PotionEffectType.SPEED; amplifier = 1; break;
-            case 1: randomEffectType = PotionEffectType.SLOWNESS; break;
-            case 2: randomEffectType = PotionEffectType.HASTE; amplifier = 0; break;
-            case 3: randomEffectType = PotionEffectType.MINING_FATIGUE; break;
-            case 4: randomEffectType = PotionEffectType.JUMP_BOOST; amplifier = 1; break;
-            default: randomEffectType = PotionEffectType.WEAKNESS; break;
+            case 0: randomEffectType = Compat.SPEED; amplifier = 1; break;
+            case 1: randomEffectType = Compat.SLOWNESS; break;
+            case 2: randomEffectType = Compat.HASTE; amplifier = 0; break;
+            case 3: randomEffectType = Compat.MINING_FATIGUE; break;
+            case 4: randomEffectType = Compat.JUMP_BOOST; amplifier = 1; break;
+            default: randomEffectType = Compat.WEAKNESS; break;
         }
         PotionEffect randomGeneratedEffect = new PotionEffect(randomEffectType, anomalyUnstableEnergyDurationTicks, amplifier, true, true, true);
         targetPlayer.addPotionEffect(randomGeneratedEffect, true);
@@ -479,11 +490,11 @@ public class VoidTension extends Mood implements Listener {
         plugin.getLogger().finer("[VoidTension Anomaly] Executing Chrono Stutter near " + targetPlayer.getName());
         world.playSound(center, Sound.BLOCK_NOTE_BLOCK_BASEDRUM, SoundCategory.PLAYERS, 1.0f, 0.4f);
         world.playSound(center, Sound.BLOCK_NOTE_BLOCK_BASEDRUM, SoundCategory.PLAYERS, 1.0f, 1.6f);
-        world.spawnParticle(Particle.REVERSE_PORTAL, center, 90, 3.5, 1.2, 3.5, 0.08);
+        world.spawnParticle(Compat.REVERSE_PORTAL, center, 90, 3.5, 1.2, 3.5, 0.08);
         for (Player p : getNearbyPlayers(center, 10)) {
             if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) {
-                p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, anomalyChronoStutterDurationTicks, 3), true);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, anomalyChronoStutterDurationTicks, 2, false, true, true), true);
+                p.addPotionEffect(new PotionEffect(Compat.SLOWNESS, anomalyChronoStutterDurationTicks, 3), true);
+                p.addPotionEffect(new PotionEffect(Compat.HASTE, anomalyChronoStutterDurationTicks, 2, false, true, true), true);
                 p.sendMessage(ChatColor.AQUA + "Time stutters around you!");
             }
         }
@@ -500,9 +511,9 @@ public class VoidTension extends Mood implements Listener {
         for (int i = 0; i < 18; i++) {
             double angle = Math.toRadians(i * 20); double radius = 0.7;
             Location particleLoc = targetPlayer.getEyeLocation().add(radius * Math.cos(angle), random.nextDouble() * 0.4 - 0.2, radius * Math.sin(angle));
-            world.spawnParticle(Particle.SMOKE, particleLoc, 1, 0, 0, 0, 0);
+            world.spawnParticle(Compat.SMOKE, particleLoc, 1, 0, 0, 0, 0);
         }
-        targetPlayer.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, anomalyWhisperingMadnessDurationTicks, 0), true);
+        targetPlayer.addPotionEffect(new PotionEffect(Compat.NAUSEA, anomalyWhisperingMadnessDurationTicks, 0), true);
         targetPlayer.sendMessage(ChatColor.DARK_GRAY + "Whispers echo directly in your mind...");
         return true;
     }
@@ -514,15 +525,16 @@ public class VoidTension extends Mood implements Listener {
         plugin.getLogger().finer("[VoidTension Anomaly] Executing Unstable Ground near " + targetPlayer.getName());
 
         world.playSound(center, Sound.BLOCK_GRINDSTONE_USE, SoundCategory.BLOCKS, 1.1f, 0.4f);
-        world.playSound(center, Sound.BLOCK_DEEPSLATE_BREAK, SoundCategory.BLOCKS, 0.9f, 0.6f);
+        world.playSound(center, Compat.DEEPSLATE_BREAK, SoundCategory.BLOCKS, 0.9f, 0.6f);
 
         List<Material> unstableTypesList = new ArrayList<>(Arrays.asList(Material.CRYING_OBSIDIAN, Material.MAGMA_BLOCK));
-        if (Material.getMaterial("AMETHYST_BLOCK") != null) unstableTypesList.add(Material.AMETHYST_BLOCK);
+        Material amethyst = Material.getMaterial("AMETHYST_BLOCK"); // 1.17+
+        if (amethyst != null) unstableTypesList.add(amethyst);
         if (SCULK_MATERIAL != null) unstableTypesList.add(SCULK_MATERIAL);
         if (unstableTypesList.isEmpty()) unstableTypesList.add(Material.NETHERRACK);
 
         Material blockDataParticleMat = unstableTypesList.get(random.nextInt(unstableTypesList.size()));
-        world.spawnParticle(Particle.BLOCK_CRUMBLE, center.clone().add(0, 0.2, 0), 60, 3, 0.2, 3, 0, blockDataParticleMat.createBlockData());
+        world.spawnParticle(Compat.BLOCK_CRUMBLE, center.clone().add(0, 0.2, 0), 60, 3, 0.2, 3, 0, blockDataParticleMat.createBlockData());
 
         List<Block> changedBlocksList = new ArrayList<>(); List<BlockData> originalDataList = new ArrayList<>();
         for (int dx = -2; dx <= 2; dx++) {
@@ -551,7 +563,7 @@ public class VoidTension extends Mood implements Listener {
                             blockToRevert.setBlockData(originalDataList.get(i), true);
                         }
                     }
-                    world.playSound(center, Sound.BLOCK_DEEPSLATE_PLACE, SoundCategory.BLOCKS, 0.8f, 0.9f);
+                    world.playSound(center, Compat.DEEPSLATE_PLACE, SoundCategory.BLOCKS, 0.8f, 0.9f);
                 }
             }.runTaskLater(plugin, revertDelayTicks);
 
@@ -574,12 +586,12 @@ public class VoidTension extends Mood implements Listener {
         for (Player p : getNearbyPlayers(center, 12)) {
             if (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) {
                 int weaknessDuration = anomalyVoidLeechWitherDurationTicks + (DEFAULT_MEDIUM_DURATION_SECONDS - DEFAULT_SHORT_DURATION_SECONDS) * 20; // e.g., Wither 6s (120t), Weakness 10s (200t)
-                p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, weaknessDuration, 0), true);
-                p.addPotionEffect(new PotionEffect(PotionEffectType.WITHER, anomalyVoidLeechWitherDurationTicks, 0), true);
+                p.addPotionEffect(new PotionEffect(Compat.WEAKNESS, weaknessDuration, 0), true);
+                p.addPotionEffect(new PotionEffect(Compat.WITHER, anomalyVoidLeechWitherDurationTicks, 0), true);
                 p.sendMessage(ChatColor.DARK_PURPLE + "A draining energy touches you...");
                 Location pLoc = p.getEyeLocation(); Vector direction = center.toVector().subtract(pLoc.toVector()).normalize().multiply(0.6);
                 for(int i = 0; i<6; i++) {
-                    world.spawnParticle(Particle.DUST, pLoc.clone().add(random.nextGaussian()*0.4, random.nextGaussian()*0.4, random.nextGaussian()*0.4) , 0, direction.getX(), direction.getY(), direction.getZ(), 0.6, purpleDustOptions);
+                    world.spawnParticle(Compat.DUST, pLoc.clone().add(random.nextGaussian()*0.4, random.nextGaussian()*0.4, random.nextGaussian()*0.4) , 0, direction.getX(), direction.getY(), direction.getZ(), 0.6, purpleDustOptions);
                 }
             }
         }
@@ -596,15 +608,29 @@ public class VoidTension extends Mood implements Listener {
             applyVoidName(entity); data.set(VOID_NAMED_KEY, PersistentDataType.BYTE, (byte)1);
         }
 
-        if (entity instanceof Monster monster) {
+        if (entity instanceof Monster) {
+            Monster monster = (Monster) entity;
             if (!data.has(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE)) {
                 applySpeedBuff(monster);
             }
-            CreatureSpawnEvent.SpawnReason reason = event.getSpawnReason();
-            boolean shouldConsiderBuff = switch (reason) {
-                case NATURAL, SPAWNER, REINFORCEMENTS, PATROL, RAID, DROWNED, JOCKEY, MOUNT, SLIME_SPLIT, SILVERFISH_BLOCK -> true;
-                default -> false;
-            };
+            boolean shouldConsiderBuff;
+            switch (event.getSpawnReason()) {
+                case NATURAL:
+                case SPAWNER:
+                case REINFORCEMENTS:
+                case PATROL:
+                case RAID:
+                case DROWNED:
+                case JOCKEY:
+                case MOUNT:
+                case SLIME_SPLIT:
+                case SILVERFISH_BLOCK:
+                    shouldConsiderBuff = true;
+                    break;
+                default:
+                    shouldConsiderBuff = false;
+                    break;
+            }
             if (shouldConsiderBuff && random.nextDouble() < configStrongMobSpawnChance) {
                 makeMobStrong(monster);
             }
@@ -640,7 +666,7 @@ public class VoidTension extends Mood implements Listener {
 
     private boolean applySpeedBuff(Monster monster) {
         PersistentDataContainer data = monster.getPersistentDataContainer();
-        AttributeInstance speedAttr = monster.getAttribute(Attribute.MOVEMENT_SPEED);
+        AttributeInstance speedAttr = Compat.attribute(monster, Compat.MOVEMENT_SPEED);
         if (speedAttr != null && !data.has(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE)) {
             try {
                 double original = speedAttr.getBaseValue();
@@ -659,7 +685,7 @@ public class VoidTension extends Mood implements Listener {
 
     private boolean removeSpeedBuff(Monster monster) {
         PersistentDataContainer data = monster.getPersistentDataContainer();
-        AttributeInstance speedAttr = monster.getAttribute(Attribute.MOVEMENT_SPEED);
+        AttributeInstance speedAttr = Compat.attribute(monster, Compat.MOVEMENT_SPEED);
         if (data.has(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE) && speedAttr != null) {
             try {
                 double originalSpeed = data.get(VOID_GENERIC_SPEED_KEY, PersistentDataType.DOUBLE);
@@ -679,7 +705,7 @@ public class VoidTension extends Mood implements Listener {
         if (data.has(VOID_BUFFED_KEY, PersistentDataType.BYTE)) return;
         boolean appliedAnyBuff = false;
 
-        AttributeInstance maxHealthAttr = monster.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance maxHealthAttr = Compat.attribute(monster, Compat.MAX_HEALTH);
         if (maxHealthAttr != null && !data.has(VOID_HEALTH_KEY, PersistentDataType.DOUBLE)) {
             try {
                 double original = maxHealthAttr.getBaseValue();
@@ -691,7 +717,7 @@ public class VoidTension extends Mood implements Listener {
             } catch (Exception e) {plugin.getLogger().warning("Failed to buff health for " + monster.getType() + ": " + e.getMessage());}
         }
 
-        AttributeInstance attackDamageAttr = monster.getAttribute(Attribute.ATTACK_DAMAGE);
+        AttributeInstance attackDamageAttr = Compat.attribute(monster, Compat.ATTACK_DAMAGE);
         if (attackDamageAttr != null && !data.has(VOID_DAMAGE_KEY, PersistentDataType.DOUBLE)) {
             try {
                 double original = attackDamageAttr.getBaseValue();
@@ -710,7 +736,7 @@ public class VoidTension extends Mood implements Listener {
         PersistentDataContainer data = monster.getPersistentDataContainer();
         data.remove(VOID_BUFFED_KEY);
 
-        AttributeInstance maxHealthAttr = monster.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance maxHealthAttr = Compat.attribute(monster, Compat.MAX_HEALTH);
         if (data.has(VOID_HEALTH_KEY, PersistentDataType.DOUBLE) && maxHealthAttr != null) {
             try {
                 double originalHealth = data.get(VOID_HEALTH_KEY, PersistentDataType.DOUBLE);
@@ -719,7 +745,7 @@ public class VoidTension extends Mood implements Listener {
             } catch (Exception e) { plugin.getLogger().warning("Failed to restore health for " + monster.getType() + ": " + e.getMessage());}
             finally { data.remove(VOID_HEALTH_KEY); }
         }
-        AttributeInstance attackDamageAttr = monster.getAttribute(Attribute.ATTACK_DAMAGE);
+        AttributeInstance attackDamageAttr = Compat.attribute(monster, Compat.ATTACK_DAMAGE);
         if (data.has(VOID_DAMAGE_KEY, PersistentDataType.DOUBLE) && attackDamageAttr != null) {
             try {
                 double originalDamage = data.get(VOID_DAMAGE_KEY, PersistentDataType.DOUBLE);
