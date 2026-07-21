@@ -134,14 +134,17 @@ public class BloodMoon extends Mood implements Listener {
 
     @Override
     public String getDescription() {
-        return "The moon hangs low and red. Creatures of the night grow stronger and more numerous under a blood-red sky.";
+        return "The moon hangs low and red. Creatures of the night grow stronger, faster and far more numerous.";
     }
 
 
     @Override
     public List<String> getEffects() {
+        // "Blood Red Sky" was listed here and removed: the red screen tint comes from the world
+        // border warning overlay, and measured on 1.21.11 it shifts edge pixels by only ~9/255
+        // (~3.7%) even with the warning distance maxed out - not perceptible. Do not advertise an
+        // effect a player cannot see. See marketing/worldmood-audit.md for the measurements.
         List<String> effects = new ArrayList<>(Arrays.asList(
-                "Blood Red Sky (Visual Effect)",
                 String.format("Hostile Mobs: +%.0f%% Health", (healthMultiplier - 1.0) * 100),
                 String.format("Hostile Mobs: +%.0f%% Damage", (damageMultiplier - 1.0) * 100),
                 String.format("Hostile Mob Spawn Rate: x%.1f", spawnRateMultiplier),
@@ -175,7 +178,9 @@ public class BloodMoon extends Mood implements Listener {
                 border.setCenter(border.getCenter()); border.setSize(Compat.maxBorderSize(border));
                 border.setDamageBuffer(0); border.setDamageAmount(0);
                 border.setWarningTime(0); // Instant red tint
-                border.setWarningDistance(59999900);
+                // Maxed rather than 59,999,900: measured on 1.21.11, the overlay strengthens with
+                // warning distance and plateaus here (+9.4/255 vs +5.4). Still subtle, but free.
+                border.setWarningDistance(Integer.MAX_VALUE);
             }
         }
 

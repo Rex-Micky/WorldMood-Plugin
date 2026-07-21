@@ -226,7 +226,9 @@ public class VoidTension extends Mood implements Listener {
         effects.add(String.format("Hostile Mobs: +%.0f%% Spawn Chance (Stronger)", configStrongMobSpawnChance * 100));
         effects.add("All Creatures: 'Void Touched' & Faster");
         effects.add("Hostile Mobs: Random Teleportation");
-        effects.add("Warped Sky Visuals (Overworld/End)");
+        // "Warped Sky Visuals" removed for the same reason as BloodMoon's "Blood Red Sky": the
+        // world border warning overlay measures ~3.7% at world scale and is not perceptible.
+        // The mood has plenty of genuinely visible effects; it does not need an invisible one.
         effects.add(ChatColor.GRAY + "(Lasts 1 Full Day/Night Cycle)");
         return effects;
     }
@@ -244,7 +246,7 @@ public class VoidTension extends Mood implements Listener {
                 plugin.getWorldStateGuard().recordBorder(world);
                 // See BloodMoon: setSize() above getMaxSize() throws IllegalArgumentException.
                 border.setCenter(border.getCenter()); border.setSize(Compat.maxBorderSize(border)); border.setDamageBuffer(0);
-                border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(59999900);
+                border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(Integer.MAX_VALUE);
             }
         }
         for (World world : Bukkit.getWorlds()) {
