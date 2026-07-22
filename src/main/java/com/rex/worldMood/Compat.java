@@ -82,6 +82,10 @@ public final class Compat {
     public static final Particle DAMAGE_INDICATOR = particle("DAMAGE_INDICATOR");
     public static final Particle ASH = particle("ASH", "SMOKE_NORMAL");
     public static final Particle COMPOSTER = particle("COMPOSTER", "VILLAGER_HAPPY");
+    public static final Particle LARGE_SMOKE = particle("LARGE_SMOKE", "SMOKE_LARGE");
+    public static final Particle WITCH = particle("WITCH", "SPELL_WITCH");
+    public static final Particle DRAGON_BREATH = particle("DRAGON_BREATH");
+    public static final Particle SOUL = particle("SOUL", "SMOKE_NORMAL");
 
     // ------------------------------------------------------------------
     // Potion effects. Renamed wholesale in 1.20.5.
@@ -115,6 +119,9 @@ public final class Compat {
     public static final Sound SCULK_SENSOR_CLICKING = sound("BLOCK_SCULK_SENSOR_CLICKING", "BLOCK_STONE_BUTTON_CLICK_ON");
     public static final Sound SCULK_SHRIEK = sound("BLOCK_SCULK_SHRIEKER_SHRIEK", "BLOCK_SCULK_SENSOR_CLICKING", "ENTITY_ELDER_GUARDIAN_CURSE");
     public static final Sound WARDEN_AMBIENT = sound("ENTITY_WARDEN_AMBIENT", "AMBIENT_CAVE");
+    // ENTITY_WOLF_HOWL exists in the 1.20.1 API this jar compiles against, but was removed/renamed
+    // by 1.21.11 — a forward-incompatibility that threw NoSuchFieldError mid-event. Resolve by name.
+    public static final Sound WOLF_HOWL = sound("ENTITY_WOLF_HOWL", "ENTITY_WOLF_GROWL", "ENTITY_WOLF_AMBIENT");
 
     // ------------------------------------------------------------------
     // Attributes (renamed in 1.21.3, when Attribute also stopped being an

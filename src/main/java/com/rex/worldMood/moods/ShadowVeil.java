@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Atmosphere;
 import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
@@ -20,7 +21,12 @@ public class ShadowVeil extends Mood {
     private int effectIntervalSeconds;
     private int blindnessDurationTicks;
     private int invisibilityDurationTicks;
+    private boolean ambientHazeEnabled;
+    private boolean fogRecolorEnabled;
     private final Random random = new Random();
+
+    private static final Color HAZE_SHADOW = Color.fromRGB(38, 18, 54);   // deep creeping violet
+    private static final Color HAZE_VIOLET = Color.fromRGB(74, 30, 96);
 
     /** In seconds — tick() is invoked once per second. */
     private static final int SPOOKY_EFFECT_INTERVAL_SECONDS = 2;
@@ -52,11 +58,15 @@ public class ShadowVeil extends Mood {
             effectIntervalSeconds = moodConfig.getInt("effectIntervalSeconds", 10);
             blindnessDurationTicks = moodConfig.getInt("blindnessDurationSeconds", 5) * 20;
             invisibilityDurationTicks = moodConfig.getInt("invisibilityDurationSeconds", 10) * 20;
+            ambientHazeEnabled = moodConfig.getBoolean("shadowHaze", true);
+            fogRecolorEnabled = moodConfig.getBoolean("fogRecolor", true);
         } else {
             effectChance = 0.35;
             effectIntervalSeconds = 10;
             blindnessDurationTicks = 5 * 20;
             invisibilityDurationTicks = 10 * 20;
+            ambientHazeEnabled = true;
+            fogRecolorEnabled = true;
             plugin.getLogger().warning("[ShadowVeil] Configuration section missing. Using default values.");
         }
     }
@@ -93,10 +103,16 @@ public class ShadowVeil extends Mood {
                 p.playSound(p.getLocation(), Sound.AMBIENT_CAVE, SoundCategory.AMBIENT, 0.4f, 0.5f);
             }
         }
+        // Recolour the fog a dark violet around each player (crash-safe; no-ops on legacy).
+        if (fogRecolorEnabled) {
+            plugin.getFogController().begin("worldmood:shadow_veil");
+        }
     }
 
     @Override
     public void remove() {
+        // Restore the recoloured fog biomes (safe to call even if fog was never applied).
+        plugin.getFogController().end();
         for (Player player : Bukkit.getOnlinePlayers()) {
             PotionEffect blindness = player.getPotionEffect(Compat.BLINDNESS);
             if (blindness != null && blindness.getDuration() <= blindnessDurationTicks + 20 && blindness.getAmplifier() == 0) {
@@ -118,6 +134,24 @@ public class ShadowVeil extends Mood {
     @Override
     public void tick(long ticksRemaining) {
         // tick() runs once per second, so secondsElapsed is directly comparable to the config value.
+
+        // creeping violet haze + drifting ash + periodic true-darkness pulses (client-side, transient)
+        if (ambientHazeEnabled) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.getGameMode() == GameMode.SPECTATOR) continue;
+                World.Environment env = player.getWorld().getEnvironment();
+                if (env != World.Environment.NORMAL && env != World.Environment.NETHER) continue;
+                Atmosphere.dustHaze(player, HAZE_SHADOW, 2.0f, 26, 7.0);
+                Atmosphere.dustHaze(player, HAZE_VIOLET, 1.5f, 10, 4.5);
+                Atmosphere.fallingMotes(player, Compat.ASH, 5, 6.0);
+                // a slow pulse of oppressive dark every ~8s (real Darkness on 1.19+, else short blindness)
+                if (secondsElapsed % 8 == 0) {
+                    Atmosphere.pulse(player, darknessPotionEffectType != null ? darknessPotionEffectType : Compat.BLINDNESS,
+                            darknessPotionEffectType != null ? 90 : 30, 0);
+                }
+            }
+        }
+
         if (effectIntervalSeconds > 0 && secondsElapsed % effectIntervalSeconds == 0) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.isDead() || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) continue;

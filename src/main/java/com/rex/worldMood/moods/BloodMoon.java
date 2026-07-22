@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Atmosphere;
 import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
@@ -62,6 +63,12 @@ public class BloodMoon extends Mood implements Listener {
     private BukkitTask bloodMoonEventTask = null;
     private final Random random = new Random();
 
+    private boolean ambientHazeEnabled;
+    private static final Color HAZE_RED = Color.fromRGB(150, 12, 16);
+    private static final Color HAZE_DARK_RED = Color.fromRGB(88, 6, 10);
+
+    private boolean fogRecolorEnabled;
+
     public BloodMoon(WorldMood plugin) {
         super(plugin, "blood_moon");
         this.BLOODMOON_HEALTH_KEY = new NamespacedKey(plugin, "bloodmoon_orig_health");
@@ -83,6 +90,8 @@ public class BloodMoon extends Mood implements Listener {
             healthMultiplier = moodConfig.getDouble("mobHealthMultiplier", 1.5);
             damageMultiplier = moodConfig.getDouble("mobDamageMultiplier", 1.2);
             spawnRateMultiplier = moodConfig.getDouble("spawnRateMultiplier", 2.0);
+            ambientHazeEnabled = moodConfig.getBoolean("bloodHaze", true);
+            fogRecolorEnabled = moodConfig.getBoolean("fogRecolor", true);
 
             ConfigurationSection eventsConfig = moodConfig.getConfigurationSection("bloodMoonEvents");
             if (eventsConfig != null) {
@@ -124,6 +133,8 @@ public class BloodMoon extends Mood implements Listener {
             }
         } else {
             healthMultiplier = 1.5; damageMultiplier = 1.2; spawnRateMultiplier = 2.0;
+            ambientHazeEnabled = true;
+            fogRecolorEnabled = true;
             bmEventsEnabled = false;
             plugin.getLogger().warning("[BloodMoon] Main configuration section missing. Using default values and disabling Blood Moon events.");
         }
@@ -184,6 +195,14 @@ public class BloodMoon extends Mood implements Listener {
             }
         }
 
+        // Phase 2: recolour the fog red by swapping the local biome to worldmood:blood_moon around
+        // each player. FogController records every change to disk first (crash-safe), follows players
+        // as they move, and no-ops where the datapack biome isn't registered (legacy servers, or a
+        // first run that still needs one restart).
+        if (fogRecolorEnabled) {
+            plugin.getFogController().begin("worldmood:blood_moon");
+        }
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.AMBIENT, 0.7f, 0.6f);
             p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.HOSTILE, 0.5f, 0.7f);
@@ -219,6 +238,10 @@ public class BloodMoon extends Mood implements Listener {
             bloodMoonEventTask = null;
         }
         plugin.getLogger().info("Blood Moon Ended: Removing mob enhancements and restoring sky...");
+
+        // restore the recoloured fog biomes (safe to call even if fog was never applied)
+        plugin.getFogController().end();
+
         originalBorders.forEach((worldUID, settings) -> {
             World world = Bukkit.getWorld(worldUID);
             if (world != null && world.getEnvironment() == World.Environment.NORMAL) {
@@ -256,21 +279,36 @@ public class BloodMoon extends Mood implements Listener {
     @Override
     public void tick(long ticksRemaining) {
         // Runs once per second (MoodManager ticks moods at 20-tick intervals).
-        Particle.DustOptions dustOptions = new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.2f);
+        Particle.DustOptions buffedDust = new Particle.DustOptions(Color.fromRGB(150, 0, 0), 1.2f);
         for (Player player : Bukkit.getOnlinePlayers()) {
             World world = player.getWorld();
             if (world.getEnvironment() != World.Environment.NORMAL && world.getEnvironment() != World.Environment.NETHER) continue;
+
+            // red particles clinging to buffed mobs
             for (Entity entity : player.getNearbyEntities(30, 15, 30)) {
                 if (entity instanceof Monster && !entity.isDead()) {
                     Monster monster = (Monster) entity;
                     if (monster.getPersistentDataContainer().has(BLOODMOON_BUFFED_KEY, PersistentDataType.BYTE)) {
                         Location particleLoc = monster.getEyeLocation().subtract(0, 0.2, 0);
-                        world.spawnParticle(Compat.DUST, particleLoc, 3, 0.4, 0.4, 0.4, 0, dustOptions);
+                        world.spawnParticle(Compat.DUST, particleLoc, 3, 0.4, 0.4, 0.4, 0, buffedDust);
                         if (Math.random() < 0.05) {
                             world.spawnParticle(Compat.SMOKE, monster.getLocation().add(0, 0.5, 0), 1, 0.2, 0.2, 0.2, 0.01);
                         }
                     }
                 }
+            }
+
+            // drifting blood haze that fills the player's view (client-side, transient)
+            if (ambientHazeEnabled) {
+                Atmosphere.dustHaze(player, HAZE_RED, 1.7f, 36, 7.5);
+                Atmosphere.dustHaze(player, HAZE_DARK_RED, 2.4f, 12, 4.0);
+            }
+        }
+
+        // low ominous drone under it all, a few times a minute
+        if (ambientHazeEnabled && secondsElapsed % 5 == 0) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                Atmosphere.ambient(player, Sound.AMBIENT_CAVE, 0.55f, 0.35f);
             }
         }
     }
@@ -292,7 +330,7 @@ public class BloodMoon extends Mood implements Listener {
         plugin.getLogger().info("[BloodMoon Event] Blood Frenzy triggered!");
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.HOSTILE, 0.8f, 0.5f);
-            player.playSound(player.getLocation(), Sound.ENTITY_WOLF_HOWL, SoundCategory.HOSTILE, 1.0f, 0.7f);
+            if (Compat.WOLF_HOWL != null) player.playSound(player.getLocation(), Compat.WOLF_HOWL, SoundCategory.HOSTILE, 1.0f, 0.7f);
         }
         Bukkit.broadcastMessage(ChatColor.DARK_RED + "[BloodMoon] " + ChatColor.RED + "A wave of bloodlust empowers the beasts of the night!");
 
