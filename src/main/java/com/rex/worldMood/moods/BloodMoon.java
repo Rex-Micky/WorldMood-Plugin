@@ -67,6 +67,9 @@ public class BloodMoon extends Mood implements Listener {
     private static final Color HAZE_RED = Color.fromRGB(150, 12, 16);
     private static final Color HAZE_DARK_RED = Color.fromRGB(88, 6, 10);
 
+    private boolean fogRecolorEnabled;
+    private final java.util.List<com.rex.worldMood.BiomeFog.Cell> fogCells = new java.util.ArrayList<>();
+
     public BloodMoon(WorldMood plugin) {
         super(plugin, "blood_moon");
         this.BLOODMOON_HEALTH_KEY = new NamespacedKey(plugin, "bloodmoon_orig_health");
@@ -89,6 +92,7 @@ public class BloodMoon extends Mood implements Listener {
             damageMultiplier = moodConfig.getDouble("mobDamageMultiplier", 1.2);
             spawnRateMultiplier = moodConfig.getDouble("spawnRateMultiplier", 2.0);
             ambientHazeEnabled = moodConfig.getBoolean("bloodHaze", true);
+            fogRecolorEnabled = moodConfig.getBoolean("fogRecolor", true);
 
             ConfigurationSection eventsConfig = moodConfig.getConfigurationSection("bloodMoonEvents");
             if (eventsConfig != null) {
@@ -131,6 +135,7 @@ public class BloodMoon extends Mood implements Listener {
         } else {
             healthMultiplier = 1.5; damageMultiplier = 1.2; spawnRateMultiplier = 2.0;
             ambientHazeEnabled = true;
+            fogRecolorEnabled = true;
             bmEventsEnabled = false;
             plugin.getLogger().warning("[BloodMoon] Main configuration section missing. Using default values and disabling Blood Moon events.");
         }
@@ -191,6 +196,19 @@ public class BloodMoon extends Mood implements Listener {
             }
         }
 
+        // SPIKE (Phase 2): recolour the fog red by swapping the local biome to worldmood:blood_moon.
+        // Records originals for restore. Biome lookup returns null where the datapack isn't present
+        // (legacy servers), so this simply no-ops there.
+        fogCells.clear();
+        if (fogRecolorEnabled) {
+            org.bukkit.block.Biome fog = com.rex.worldMood.BiomeFog.biome("worldmood:blood_moon");
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getWorld().getEnvironment() == World.Environment.NORMAL) {
+                    fogCells.addAll(com.rex.worldMood.BiomeFog.apply(p, fog, 3, 24));
+                }
+            }
+        }
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, SoundCategory.AMBIENT, 0.7f, 0.6f);
             p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, SoundCategory.HOSTILE, 0.5f, 0.7f);
@@ -226,6 +244,16 @@ public class BloodMoon extends Mood implements Listener {
             bloodMoonEventTask = null;
         }
         plugin.getLogger().info("Blood Moon Ended: Removing mob enhancements and restoring sky...");
+
+        // restore the recoloured fog biomes
+        if (!fogCells.isEmpty()) {
+            World fogWorld = Bukkit.getWorlds().stream()
+                    .filter(w -> w.getEnvironment() == World.Environment.NORMAL)
+                    .findFirst().orElse(null);
+            if (fogWorld != null) com.rex.worldMood.BiomeFog.restore(fogWorld, fogCells);
+            fogCells.clear();
+        }
+
         originalBorders.forEach((worldUID, settings) -> {
             World world = Bukkit.getWorld(worldUID);
             if (world != null && world.getEnvironment() == World.Environment.NORMAL) {
