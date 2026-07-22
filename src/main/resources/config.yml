@@ -91,6 +91,8 @@ moods:
     # Multiplier for natural hostile mob spawn rate. 2.0 = double spawn rate.
     # This is separate from the "Horde Surge" event.
     spawnRateMultiplier: 2.0
+    # Drifting blood-red haze around each player + a low ominous ambience. Purely visual.
+    bloodHaze: true
 
     # --- Settings for Special Blood Moon Events ---
     # These are random mini-events that can occur *during* a Blood Moon.
@@ -155,6 +157,8 @@ moods:
     blindnessDurationSeconds: 5 # Matched to Java code
     # Duration (in seconds) of the Invisibility effect if applied.
     invisibilityDurationSeconds: 10 # Matched to Java code
+    # Creeping violet haze + drifting ash + periodic true-darkness pulses around each player. Visual.
+    shadowHaze: true
 
   lucky_day:
     # RARE Mood - lower weight makes it less common.
@@ -197,6 +201,11 @@ moods:
     anomalyChancePerTickPerPlayer: 0.0002 # Key matched to Java code
     # Chance (0.0 to 1.0) for naturally spawning hostile mobs to be "Strong" (more health/damage).
     strongMobSpawnChance: 0.12
+    # Drifting purple void haze + swirling portal/witch particles around each player. Purely visual.
+    voidHaze: true
+    # Reality-warp screen wobble (Nausea). Comes in ~8-second waves every ~40s, not constantly.
+    # Disorienting in combat by design — set false if your players dislike it.
+    screenWarp: true
 
     # --- Individual Anomaly Toggles & Durations ---
     # For each anomaly, you can enable/disable it and set its primary effect duration in seconds.

@@ -1,5 +1,6 @@
 package com.rex.worldMood.moods;
 
+import com.rex.worldMood.Atmosphere;
 import com.rex.worldMood.Compat;
 import com.rex.worldMood.WorldMood;
 import org.bukkit.*;
@@ -33,7 +34,12 @@ public class VoidTension extends Mood implements Listener {
     private boolean configEnableAnomalies;
     private double configAnomalyChancePerTickPerPlayer;
     private double configStrongMobSpawnChance;
+    private boolean ambientHazeEnabled;
+    private boolean screenWarpEnabled;
     private final Random random = new Random();
+
+    private static final Color HAZE_VOID = Color.fromRGB(84, 22, 120);      // void purple
+    private static final Color HAZE_VOID_DEEP = Color.fromRGB(140, 40, 170);
     private boolean anomalyAntiGravityPulseEnabled; private int anomalyAntiGravityPulseDurationTicks;
     private boolean anomalyVoidGraspEnabled; private int anomalyVoidGraspDurationTicks;
     private boolean anomalyRealityTearEnabled; private int anomalyRealityTearDurationTicks;
@@ -117,6 +123,8 @@ public class VoidTension extends Mood implements Listener {
             configEnableAnomalies = moodConfig.getBoolean("enableAnomalies", true);
             configAnomalyChancePerTickPerPlayer = moodConfig.getDouble("anomalyChancePerTickPerPlayer", DEFAULT_ANOMALY_CHANCE_PER_TICK_PER_PLAYER);
             configStrongMobSpawnChance = moodConfig.getDouble("strongMobSpawnChance", 0.12);
+            ambientHazeEnabled = moodConfig.getBoolean("voidHaze", true);
+            screenWarpEnabled = moodConfig.getBoolean("screenWarp", true);
 
             ConfigurationSection anomaliesConfig = moodConfig.getConfigurationSection("individualAnomalies");
             if (anomaliesConfig != null && configEnableAnomalies) {
@@ -175,6 +183,8 @@ public class VoidTension extends Mood implements Listener {
             configEnableAnomalies = true;
             configAnomalyChancePerTickPerPlayer = DEFAULT_ANOMALY_CHANCE_PER_TICK_PER_PLAYER;
             configStrongMobSpawnChance = 0.12;
+            ambientHazeEnabled = true;
+            screenWarpEnabled = true;
             anomalyAntiGravityPulseEnabled = true; anomalyAntiGravityPulseDurationTicks = DEFAULT_SHORT_DURATION_SECONDS * 20;
             anomalyVoidGraspEnabled = true; anomalyVoidGraspDurationTicks = DEFAULT_MEDIUM_DURATION_SECONDS * 20;
             anomalyRealityTearEnabled = true; anomalyRealityTearDurationTicks = DEFAULT_SHORT_DURATION_SECONDS * 20;
@@ -306,6 +316,29 @@ public class VoidTension extends Mood implements Listener {
 
     @Override
     public void tick(long ticksRemaining) {
+        // warped purple haze + reality-bending screen wobble + oppressive dark (client-side, transient)
+        if (ambientHazeEnabled) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.getGameMode() == GameMode.SPECTATOR) continue;
+                Atmosphere.dustHaze(player, HAZE_VOID, 1.8f, 30, 7.5);
+                Atmosphere.dustHaze(player, HAZE_VOID_DEEP, 1.3f, 10, 4.0);
+                Atmosphere.haze(player, Compat.PORTAL, 14, 6.0, 0.6);
+                if (secondsElapsed % 3 == 0) Atmosphere.haze(player, Compat.WITCH, 6, 5.0, 0.0);
+                if (secondsElapsed % 5 == 0) Atmosphere.haze(player, Compat.DRAGON_BREATH, 4, 4.0, 0.02);
+
+                // Nausea screen-warp comes in WAVES, not constantly — Void Tension lasts a full day,
+                // and non-stop nausea would be genuinely sickening. ~8s of warp every ~40s reads as
+                // "reality lurches" periodically. Config-toggleable and mild (amplifier 0).
+                if (screenWarpEnabled && (secondsElapsed % 40) < 8) {
+                    Atmosphere.pulse(player, Compat.NAUSEA, 60, 0);
+                }
+                // periodic true-darkness beat on 1.19+ (null-safe; skipped on older servers)
+                if (secondsElapsed % 9 == 0) {
+                    Atmosphere.pulse(player, Compat.DARKNESS, 100, 0);
+                }
+            }
+        }
+
         if (configEnableAnomalies && !anomalyExecutors.isEmpty()) {
             int playerCount = Bukkit.getOnlinePlayers().size();
             if (playerCount > 0) {
