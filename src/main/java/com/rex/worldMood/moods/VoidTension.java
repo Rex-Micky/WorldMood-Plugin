@@ -22,6 +22,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.bukkit.SoundCategory;
 
@@ -38,9 +39,14 @@ public class VoidTension extends Mood implements Listener {
     private boolean screenWarpEnabled;
     private boolean fogRecolorEnabled;
     private final Random random = new Random();
+    private BukkitTask hazeTask;
 
     private static final Color HAZE_VOID = Color.fromRGB(84, 22, 120);      // void purple
     private static final Color HAZE_VOID_DEEP = Color.fromRGB(140, 40, 170);
+    // A brighter, denser purple mist is what actually makes the mood read purple: the biome fog
+    // washes toward blue in daylight, but per-player dust keeps its exact colour in any light.
+    private static final Color HAZE_MIST = Color.fromRGB(150, 45, 205);
+    private static final Color HAZE_MIST_DEEP = Color.fromRGB(96, 24, 156);
     private boolean anomalyAntiGravityPulseEnabled; private int anomalyAntiGravityPulseDurationTicks;
     private boolean anomalyVoidGraspEnabled; private int anomalyVoidGraspDurationTicks;
     private boolean anomalyRealityTearEnabled; private int anomalyRealityTearDurationTicks;
@@ -65,17 +71,6 @@ public class VoidTension extends Mood implements Listener {
     private static Material SCULK_MATERIAL = null;
     private static boolean versionSpecificsInitialized = false;
 
-    private static class OriginalBorderSettings {
-        final double size; final double centerX; final double centerZ;
-        final double damageBuffer; final double damageAmount;
-        final int warningDistance; final int warningTime;
-        OriginalBorderSettings(WorldBorder border) {
-            this.size = border.getSize(); this.centerX = border.getCenter().getX(); this.centerZ = border.getCenter().getZ();
-            this.damageBuffer = border.getDamageBuffer(); this.damageAmount = border.getDamageAmount();
-            this.warningDistance = border.getWarningDistance(); this.warningTime = border.getWarningTime();
-        }
-    }
-    private final Map<UUID, OriginalBorderSettings> originalBorders = new HashMap<>();
     private final List<Supplier<Boolean>> anomalyExecutors = new ArrayList<>();
     private static final double DEFAULT_ANOMALY_CHANCE_PER_TICK_PER_PLAYER = 0.0002;
     private static final int DEFAULT_SHORT_DURATION_SECONDS = 6;
@@ -249,19 +244,11 @@ public class VoidTension extends Mood implements Listener {
     @Override
     public void apply() {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        originalBorders.clear();
 
-        for (World world : Bukkit.getWorlds()) {
-            if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.THE_END) {
-                WorldBorder border = world.getWorldBorder();
-                originalBorders.put(world.getUID(), new OriginalBorderSettings(border));
-                // Persist BEFORE mutating — see WorldStateGuard.
-                plugin.getWorldStateGuard().recordBorder(world);
-                // See BloodMoon: setSize() above getMaxSize() throws IllegalArgumentException.
-                border.setCenter(border.getCenter()); border.setSize(Compat.maxBorderSize(border)); border.setDamageBuffer(0);
-                border.setDamageAmount(0); border.setWarningTime(0); border.setWarningDistance(Integer.MAX_VALUE);
-            }
-        }
+        // NOTE: Void Tension deliberately no longer touches the world border. It used to max the
+        // border's warning distance for a faint "warped sky" tint, but that renders a RED screen-edge
+        // vignette — which clashes badly with the new purple fog and made the mood look red, not
+        // purple. The real biome fog now provides the sky recolour, so the border hack is gone.
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.NETHER || world.getEnvironment() == World.Environment.THE_END) {
                 for (LivingEntity entity : world.getLivingEntities()) {
@@ -281,6 +268,29 @@ public class VoidTension extends Mood implements Listener {
             plugin.getFogController().begin("worldmood:void_tension");
         }
 
+        // Dense purple mist — the layer that actually makes the mood read purple in any lighting.
+        // Runs on its own 4-tick task (not the 1/s mood tick) so the haze stays smooth, not pulsing.
+        if (ambientHazeEnabled) {
+            if (hazeTask != null) hazeTask.cancel();
+            hazeTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (plugin.getMoodManager().getCurrentMood() != VoidTension.this) {
+                        cancel();
+                        return;
+                    }
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getGameMode() == GameMode.SPECTATOR) continue;
+                        World.Environment env = p.getWorld().getEnvironment();
+                        if (env != World.Environment.NORMAL && env != World.Environment.NETHER
+                                && env != World.Environment.THE_END) continue;
+                        Atmosphere.dustHaze(p, HAZE_MIST, 1.6f, 50, 9.5);
+                        Atmosphere.dustHaze(p, HAZE_MIST_DEEP, 1.0f, 28, 5.5);
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 4L);
+        }
+
         for(Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.BLOCK_PORTAL_AMBIENT, SoundCategory.AMBIENT, 0.8f, 0.4f);
             p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_SCREAM, SoundCategory.HOSTILE, 0.35f, 0.6f);
@@ -291,22 +301,12 @@ public class VoidTension extends Mood implements Listener {
     @Override
     public void remove() {
         HandlerList.unregisterAll(this);
+        if (hazeTask != null) {
+            hazeTask.cancel();
+            hazeTask = null;
+        }
         // Restore the recoloured fog biomes (safe to call even if fog was never applied).
         plugin.getFogController().end();
-        originalBorders.forEach((worldUID, settings) -> {
-            World world = Bukkit.getWorld(worldUID);
-            if (world != null && (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.THE_END)) {
-                WorldBorder border = world.getWorldBorder();
-                try {
-                    border.setCenter(settings.centerX, settings.centerZ); border.setSize(settings.size);
-                    border.setDamageBuffer(settings.damageBuffer); border.setDamageAmount(settings.damageAmount);
-                    border.setWarningTime(settings.warningTime); border.setWarningDistance(settings.warningDistance);
-                    // Restored cleanly — drop the crash-recovery record.
-                    plugin.getWorldStateGuard().clearBorder(world);
-                } catch (Exception e) { plugin.getLogger().warning("Failed to restore border for " + world.getName() + ": " + e.getMessage());}
-            }
-        });
-        originalBorders.clear();
         for (World world : Bukkit.getWorlds()) {
             if (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.NETHER || world.getEnvironment() == World.Environment.THE_END) {
                 for (LivingEntity entity : world.getLivingEntities()) {
@@ -330,8 +330,8 @@ public class VoidTension extends Mood implements Listener {
         if (ambientHazeEnabled) {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getGameMode() == GameMode.SPECTATOR) continue;
-                Atmosphere.dustHaze(player, HAZE_VOID, 1.8f, 30, 7.5);
-                Atmosphere.dustHaze(player, HAZE_VOID_DEEP, 1.3f, 10, 4.0);
+                // The dense purple dust mist is spawned by the dedicated hazeTask (started in apply);
+                // here we keep the swirling portal/witch accents and the screen effects.
                 Atmosphere.haze(player, Compat.PORTAL, 14, 6.0, 0.6);
                 if (secondsElapsed % 3 == 0) Atmosphere.haze(player, Compat.WITCH, 6, 5.0, 0.0);
                 if (secondsElapsed % 5 == 0) Atmosphere.haze(player, Compat.DRAGON_BREATH, 4, 4.0, 0.02);
