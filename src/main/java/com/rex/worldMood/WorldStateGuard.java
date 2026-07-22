@@ -4,21 +4,32 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
+import org.bukkit.block.Biome;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Crash-safety net for <b>persistent</b> world state.
  * <p>
  * Some moods change settings that live in the world's own save data and therefore outlive the
- * plugin: {@code doMobSpawning} (CalmSkies) and the world border (BloodMoon, VoidTension).
- * Restoring those only in {@code Mood.remove()} is not enough — if the server crashes, is killed,
- * or throws partway through removal, the change becomes permanent and invisible. A server could be
- * left with mob spawning switched off forever, long after WorldMood was uninstalled.
+ * plugin: {@code doMobSpawning} (CalmSkies), the world border (BloodMoon, VoidTension), and the
+ * per-cell biomes used for coloured fog ({@link FogController}). Restoring those only in
+ * {@code Mood.remove()} is not enough — if the server crashes, is killed, or throws partway through
+ * removal, the change becomes permanent and invisible. A server could be left with mob spawning
+ * switched off forever, or a permanently red-fogged world, long after WorldMood was uninstalled.
  * <p>
  * So every such change is written to disk <i>before</i> it is applied, and cleared once it has been
  * undone. On startup {@link #restorePending()} puts back anything an unclean shutdown left behind.
@@ -67,6 +78,53 @@ public class WorldStateGuard {
     public void clearBorder(World world) {
         data.set("borders." + world.getUID(), null);
         save();
+    }
+
+    // ------------------------------------------------------------------
+    // Coloured-fog biome cells. There can be thousands, so they are stored
+    // compactly: a small palette of original biome keys plus one Base64 blob
+    // (x:int, z:int, y:short, paletteIndex:short per cell) rather than a
+    // YAML node per cell. FogController calls this with the full current set
+    // for a world whenever that set changes, keeping disk == memory.
+    // ------------------------------------------------------------------
+    private static final int BYTES_PER_CELL = 12;
+
+    /** Records the complete set of tinted cells for a world. Call BEFORE swapping newly-added cells. */
+    public void saveFog(World world, Collection<BiomeFog.Cell> cells) {
+        if (cells == null || cells.isEmpty()) {
+            clearFogWorld(world);
+            return;
+        }
+        Map<String, Integer> paletteIndex = new LinkedHashMap<>();
+        ByteBuffer buf = ByteBuffer.allocate(cells.size() * BYTES_PER_CELL);
+        int written = 0;
+        for (BiomeFog.Cell c : cells) {
+            String key = BiomeFog.keyOf(c.original);
+            if (key == null) continue; // unkeyable original — cannot be restored, so don't record it
+            int idx = paletteIndex.computeIfAbsent(key, k -> paletteIndex.size());
+            buf.putInt(c.x).putInt(c.z).putShort((short) c.y).putShort((short) idx);
+            written++;
+        }
+        List<String> palette = new ArrayList<>(paletteIndex.keySet());
+        String path = "fog." + world.getUID() + ".";
+        data.set(path + "palette", palette);
+        data.set(path + "data", Base64.getEncoder().encodeToString(
+                java.util.Arrays.copyOf(buf.array(), written * BYTES_PER_CELL)));
+        save();
+    }
+
+    /** Clears the fog record for one world once its cells have been restored normally. */
+    public void clearFogWorld(World world) {
+        data.set("fog." + world.getUID(), null);
+        save();
+    }
+
+    /** Clears every fog record (used when a mood ends and all cells are restored). */
+    public void clearFog() {
+        if (data.getConfigurationSection("fog") != null) {
+            data.set("fog", null);
+            save();
+        }
     }
 
     /**
@@ -119,10 +177,65 @@ public class WorldStateGuard {
             }
         }
 
+        restored += restoreFog();
+
         if (restored > 0) {
             data.set("gamerules", null);
             data.set("borders", null);
+            data.set("fog", null);
             save();
+        }
+        return restored;
+    }
+
+    /**
+     * Puts back every fog-tinted biome cell an unclean shutdown left behind. Originals are vanilla
+     * biomes, always resolvable, so this works even if the custom fog datapack is gone. Returns the
+     * number of cells restored (0 when nothing was pending).
+     */
+    private int restoreFog() {
+        ConfigurationSection fog = data.getConfigurationSection("fog");
+        if (fog == null) return 0;
+        int restored = 0;
+        for (String worldId : fog.getKeys(false)) {
+            World world = worldFor(worldId);
+            ConfigurationSection saved = fog.getConfigurationSection(worldId);
+            if (world == null || saved == null) continue;
+
+            List<String> palette = saved.getStringList("palette");
+            String data64 = saved.getString("data");
+            if (data64 == null || palette.isEmpty()) continue;
+
+            byte[] bytes;
+            try {
+                bytes = Base64.getDecoder().decode(data64);
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("Skipping a corrupt fog record for world '" + world.getName() + "'.");
+                continue;
+            }
+            ByteBuffer buf = ByteBuffer.wrap(bytes);
+            Set<Long> chunks = new HashSet<>();
+            int cellsHere = 0;
+            while (buf.remaining() >= BYTES_PER_CELL) {
+                int x = buf.getInt();
+                int z = buf.getInt();
+                int y = buf.getShort();
+                int idx = buf.getShort();
+                if (idx < 0 || idx >= palette.size()) continue;
+                Biome original = BiomeFog.biome(palette.get(idx));
+                if (original == null) continue;
+                world.setBiome(x, y, z, original);
+                chunks.add((((long) (x >> 4)) << 32) | ((z >> 4) & 0xFFFFFFFFL));
+                cellsHere++;
+            }
+            for (long ck : chunks) {
+                BiomeFog.refreshChunk(world, (int) (ck >> 32), (int) ck);
+            }
+            if (cellsHere > 0) {
+                plugin.getLogger().warning("Restored " + cellsHere + " fog biome cells in world '"
+                        + world.getName() + "' after an unclean shutdown.");
+                restored += cellsHere;
+            }
         }
         return restored;
     }

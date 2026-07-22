@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.rex'
-version = '1.2.0'
+version = '1.3.0'
 
 base {
     archivesName = 'WorldMood'
@@ -78,6 +78,9 @@ tasks.named('processLegacyResources') {
     filesMatching('plugin.yml') {
         expand(version: project.version, apiVersion: '1.16')
     }
+    // The coloured-fog datapack is a modern-only (1.20+) feature: custom biomes cannot be referenced
+    // by the legacy 1.16-1.19 Biome enum, so there is no reason to ship the datapack in that jar.
+    exclude 'fog-datapack/**'
 }
 
 tasks.register('legacyJar', Jar) {

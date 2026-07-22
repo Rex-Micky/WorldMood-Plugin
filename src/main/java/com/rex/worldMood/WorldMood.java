@@ -7,6 +7,7 @@ public final class WorldMood extends JavaPlugin {
 
     private MoodManager moodManager;
     private WorldStateGuard worldStateGuard;
+    private FogController fogController;
 
     @Override
     public void onEnable() {
@@ -14,9 +15,15 @@ public final class WorldMood extends JavaPlugin {
 
         Compat.logSupportSummary();
 
-        // Must run before any mood can start: puts back world settings that a crash left behind.
+        // Must run before any mood can start: puts back world settings (game rules, borders, and
+        // fog biome cells) that a crash left behind.
         worldStateGuard = new WorldStateGuard(this);
         worldStateGuard.restorePending();
+
+        // Ships/extracts the coloured-fog datapack (modern jar only) and reports if a restart is
+        // needed for its biomes to register.
+        fogController = new FogController(this, worldStateGuard);
+        fogController.installDatapack();
 
         moodManager = new MoodManager(this);
 
@@ -38,6 +45,11 @@ public final class WorldMood extends JavaPlugin {
     public void onDisable() {
         if (moodManager != null) {
             moodManager.stopMoodCycle();
+        }
+        // Safety net: stopMoodCycle already ends the active mood (which restores its fog), but if any
+        // tint is somehow still outstanding, put it back and clear the crash record on a clean stop.
+        if (fogController != null) {
+            fogController.end();
         }
 
         getLogger().info("WorldMood disabled.");
@@ -64,5 +76,9 @@ public final class WorldMood extends JavaPlugin {
 
     public WorldStateGuard getWorldStateGuard() {
         return worldStateGuard;
+    }
+
+    public FogController getFogController() {
+        return fogController;
     }
 }

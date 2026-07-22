@@ -93,6 +93,16 @@ moods:
     spawnRateMultiplier: 2.0
     # Drifting blood-red haze around each player + a low ominous ambience. Purely visual.
     bloodHaze: true
+    # Recolour the actual world fog/sky deep red around each player, so the sky itself bleeds.
+    # This works by swapping nearby biomes to a bundled datapack biome, which the plugin installs
+    # into your world automatically. NOTES:
+    #   - Requires MC 1.21+ (the datapack biome format only loads there). On 1.16-1.20 it is
+    #     silently ignored and every other effect still runs.
+    #   - After the FIRST time the plugin runs, the datapack needs ONE server restart to register
+    #     its biomes; until then fog is skipped (you'll see a note in the console). No restart is
+    #     needed again after that.
+    #   - Fully reverted when the mood ends, and automatically restored on startup after a crash.
+    fogRecolor: true
 
     # --- Settings for Special Blood Moon Events ---
     # These are random mini-events that can occur *during* a Blood Moon.
@@ -159,6 +169,10 @@ moods:
     invisibilityDurationSeconds: 10 # Matched to Java code
     # Creeping violet haze + drifting ash + periodic true-darkness pulses around each player. Visual.
     shadowHaze: true
+    # Recolour the world fog a dark violet around each player. Same bundled-datapack mechanism as
+    # Blood Moon's fogRecolor (modern servers only; one restart after first enable; fully restored
+    # when the mood ends and after a crash). See blood_moon.fogRecolor for details.
+    fogRecolor: true
 
   lucky_day:
     # RARE Mood - lower weight makes it less common.
@@ -206,6 +220,10 @@ moods:
     # Reality-warp screen wobble (Nausea). Comes in ~8-second waves every ~40s, not constantly.
     # Disorienting in combat by design — set false if your players dislike it.
     screenWarp: true
+    # Recolour the world fog/sky a deep void purple around each player. Same bundled-datapack
+    # mechanism as Blood Moon's fogRecolor (modern servers only; one restart after first enable;
+    # fully restored when the mood ends and after a crash). See blood_moon.fogRecolor for details.
+    fogRecolor: true
 
     # --- Individual Anomaly Toggles & Durations ---
     # For each anomaly, you can enable/disable it and set its primary effect duration in seconds.

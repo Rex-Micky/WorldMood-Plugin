@@ -1,43 +1,45 @@
 package com.rex.worldMood;
 
-import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Biome;
-import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.logging.Logger;
+import java.util.Locale;
 
 /**
- * SPIKE: temporarily recolours the fog around players by swapping the local biome to a custom
- * datapack biome (red for Blood Moon, etc.), recording every cell it touches so it can put them
- * back.
+ * Low-level, version-defensive helpers for the biome-fog mechanism. The stateful session
+ * (which biome, which cells, crash-safe persistence, re-tinting) lives in {@link FogController};
+ * this class only knows how to resolve a datapack biome, read a biome's key, pack a cell
+ * coordinate, and resend a chunk.
  * <p>
- * This is the risky Phase-2 mechanism, deliberately minimal here — no disk-backed crash safety
- * yet — purely to prove the fog actually recolours on a live client before that machinery gets
- * built. Biomes are stored in 4x4x4 cells; we only touch a Y-band around the camera because the
- * client derives fog from the biome at the camera position.
+ * Everything here is defensive: on servers whose {@code Biome} is still the old fixed enum
+ * (the legacy 1.16.5–1.19 jar) a custom datapack biome cannot be represented, so
+ * {@link #biome(String)} returns {@code null} and the whole fog feature simply no-ops.
  */
 public final class BiomeFog {
-
-    private static final Logger LOG = Logger.getLogger("WorldMood");
 
     private BiomeFog() {
     }
 
-    /** One recorded cell: where it is and what biome it was before we changed it. */
+    /** One recorded cell: where it is (block coords on the 4-grid) and its biome before we changed it. */
     public static final class Cell {
         final int x, y, z;
         final Biome original;
-        Cell(int x, int y, int z, Biome original) { this.x = x; this.y = y; this.z = z; this.original = original; }
+
+        Cell(int x, int y, int z, Biome original) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.original = original;
+        }
     }
 
-    /** Resolves a datapack biome by key, or null if it isn't registered (e.g. on legacy servers). */
+    /**
+     * Resolves a biome by key via the runtime registry, or {@code null} if it isn't registered
+     * (a custom datapack biome that hasn't loaded yet, or any custom biome on a legacy server).
+     * Also used to resolve the vanilla originals during crash recovery.
+     */
     public static Biome biome(String key) {
         try {
             NamespacedKey nk = NamespacedKey.fromString(key);
@@ -48,60 +50,41 @@ public final class BiomeFog {
     }
 
     /**
-     * Swaps the biome to {@code fog} in a box of chunks around the player and resends them.
-     * Returns the recorded originals, to be passed to {@link #restore}.
+     * The namespaced key of a biome as a string (e.g. {@code "minecraft:forest"}), resolved
+     * reflectively so the shared source compiles against both the enum-era and registry-era APIs.
+     * Only ever called on servers where fog actually applied (modern), but must compile everywhere.
      */
-    public static List<Cell> apply(Player player, Biome fog, int radiusChunks, int yBand) {
-        List<Cell> touched = new ArrayList<>();
-        if (fog == null) return touched;
-
-        World world = player.getWorld();
-        Chunk centre = player.getLocation().getChunk();
-        int camY = player.getLocation().getBlockY();
-        int minY = Math.max(world.getMinHeight(), camY - yBand);
-        int maxY = Math.min(world.getMaxHeight() - 1, camY + yBand);
-
-        for (int dcx = -radiusChunks; dcx <= radiusChunks; dcx++) {
-            for (int dcz = -radiusChunks; dcz <= radiusChunks; dcz++) {
-                int cx = centre.getX() + dcx, cz = centre.getZ() + dcz;
-                int bx = cx << 4, bz = cz << 4;
-                for (int x = bx; x < bx + 16; x += 4) {
-                    for (int z = bz; z < bz + 16; z += 4) {
-                        for (int y = minY; y <= maxY; y += 4) {
-                            Biome cur = world.getBiome(x, y, z);
-                            if (cur == fog) continue;
-                            touched.add(new Cell(x, y, z, cur));
-                            world.setBiome(x, y, z, fog);
-                        }
-                    }
-                }
-                resend(world, cx, cz);
-            }
+    public static String keyOf(Biome biome) {
+        if (biome == null) return null;
+        try {
+            Object key = biome.getClass().getMethod("getKey").invoke(biome);
+            if (key != null) return key.toString();
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Very old API without Keyed on Biome — fall through to the enum name.
         }
-        LOG.info("[BiomeFog] recoloured " + touched.size() + " biome cells around " + player.getName());
-        return touched;
+        try {
+            return "minecraft:" + biome.toString().toLowerCase(Locale.ROOT);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
-    /** Restores every recorded cell to its original biome and resends the affected chunks. */
-    public static void restore(World world, List<Cell> touched) {
-        if (touched == null || touched.isEmpty()) return;
-        Set<Long> chunks = new HashSet<>();
-        for (Cell c : touched) {
-            world.setBiome(c.x, c.y, c.z, c.original);
-            chunks.add((((long) (c.x >> 4)) << 32) | ((c.z >> 4) & 0xFFFFFFFFL));
-        }
-        for (long ck : chunks) {
-            resend(world, (int) (ck >> 32), (int) ck);
-        }
-        LOG.info("[BiomeFog] restored " + touched.size() + " biome cells");
+    /**
+     * Packs a cell's block coordinates into a single long for de-duplication, using the same
+     * 26/12/26-bit layout as vanilla {@code BlockPos}. Cells sit on a 4-block grid but the full
+     * coordinate is packed so no information is lost.
+     */
+    public static long cellKey(int x, int y, int z) {
+        return ((long) (x & 0x3FFFFFF) << 38) | ((long) (z & 0x3FFFFFF) << 12) | (y & 0xFFFL);
     }
 
-    /** refreshChunk pushes fresh chunk data (including biomes) to nearby players. */
+    /** refreshChunk pushes fresh chunk data (including biomes) to nearby players; no-op with no viewers. */
     @SuppressWarnings("deprecation")
-    private static void resend(World world, int cx, int cz) {
+    public static void refreshChunk(World world, int cx, int cz) {
         try {
             world.refreshChunk(cx, cz);
         } catch (Throwable ignored) {
+            // Some server flavours dislike refreshing an unloaded chunk — never let cosmetics throw.
         }
     }
 }

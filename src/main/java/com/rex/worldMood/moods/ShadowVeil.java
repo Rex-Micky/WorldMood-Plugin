@@ -22,6 +22,7 @@ public class ShadowVeil extends Mood {
     private int blindnessDurationTicks;
     private int invisibilityDurationTicks;
     private boolean ambientHazeEnabled;
+    private boolean fogRecolorEnabled;
     private final Random random = new Random();
 
     private static final Color HAZE_SHADOW = Color.fromRGB(38, 18, 54);   // deep creeping violet
@@ -58,12 +59,14 @@ public class ShadowVeil extends Mood {
             blindnessDurationTicks = moodConfig.getInt("blindnessDurationSeconds", 5) * 20;
             invisibilityDurationTicks = moodConfig.getInt("invisibilityDurationSeconds", 10) * 20;
             ambientHazeEnabled = moodConfig.getBoolean("shadowHaze", true);
+            fogRecolorEnabled = moodConfig.getBoolean("fogRecolor", true);
         } else {
             effectChance = 0.35;
             effectIntervalSeconds = 10;
             blindnessDurationTicks = 5 * 20;
             invisibilityDurationTicks = 10 * 20;
             ambientHazeEnabled = true;
+            fogRecolorEnabled = true;
             plugin.getLogger().warning("[ShadowVeil] Configuration section missing. Using default values.");
         }
     }
@@ -100,10 +103,16 @@ public class ShadowVeil extends Mood {
                 p.playSound(p.getLocation(), Sound.AMBIENT_CAVE, SoundCategory.AMBIENT, 0.4f, 0.5f);
             }
         }
+        // Recolour the fog a dark violet around each player (crash-safe; no-ops on legacy).
+        if (fogRecolorEnabled) {
+            plugin.getFogController().begin("worldmood:shadow_veil");
+        }
     }
 
     @Override
     public void remove() {
+        // Restore the recoloured fog biomes (safe to call even if fog was never applied).
+        plugin.getFogController().end();
         for (Player player : Bukkit.getOnlinePlayers()) {
             PotionEffect blindness = player.getPotionEffect(Compat.BLINDNESS);
             if (blindness != null && blindness.getDuration() <= blindnessDurationTicks + 20 && blindness.getAmplifier() == 0) {

@@ -68,7 +68,6 @@ public class BloodMoon extends Mood implements Listener {
     private static final Color HAZE_DARK_RED = Color.fromRGB(88, 6, 10);
 
     private boolean fogRecolorEnabled;
-    private final java.util.List<com.rex.worldMood.BiomeFog.Cell> fogCells = new java.util.ArrayList<>();
 
     public BloodMoon(WorldMood plugin) {
         super(plugin, "blood_moon");
@@ -196,17 +195,12 @@ public class BloodMoon extends Mood implements Listener {
             }
         }
 
-        // SPIKE (Phase 2): recolour the fog red by swapping the local biome to worldmood:blood_moon.
-        // Records originals for restore. Biome lookup returns null where the datapack isn't present
-        // (legacy servers), so this simply no-ops there.
-        fogCells.clear();
+        // Phase 2: recolour the fog red by swapping the local biome to worldmood:blood_moon around
+        // each player. FogController records every change to disk first (crash-safe), follows players
+        // as they move, and no-ops where the datapack biome isn't registered (legacy servers, or a
+        // first run that still needs one restart).
         if (fogRecolorEnabled) {
-            org.bukkit.block.Biome fog = com.rex.worldMood.BiomeFog.biome("worldmood:blood_moon");
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (p.getWorld().getEnvironment() == World.Environment.NORMAL) {
-                    fogCells.addAll(com.rex.worldMood.BiomeFog.apply(p, fog, 3, 24));
-                }
-            }
+            plugin.getFogController().begin("worldmood:blood_moon");
         }
 
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -245,14 +239,8 @@ public class BloodMoon extends Mood implements Listener {
         }
         plugin.getLogger().info("Blood Moon Ended: Removing mob enhancements and restoring sky...");
 
-        // restore the recoloured fog biomes
-        if (!fogCells.isEmpty()) {
-            World fogWorld = Bukkit.getWorlds().stream()
-                    .filter(w -> w.getEnvironment() == World.Environment.NORMAL)
-                    .findFirst().orElse(null);
-            if (fogWorld != null) com.rex.worldMood.BiomeFog.restore(fogWorld, fogCells);
-            fogCells.clear();
-        }
+        // restore the recoloured fog biomes (safe to call even if fog was never applied)
+        plugin.getFogController().end();
 
         originalBorders.forEach((worldUID, settings) -> {
             World world = Bukkit.getWorld(worldUID);

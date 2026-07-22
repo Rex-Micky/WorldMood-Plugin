@@ -36,6 +36,7 @@ public class VoidTension extends Mood implements Listener {
     private double configStrongMobSpawnChance;
     private boolean ambientHazeEnabled;
     private boolean screenWarpEnabled;
+    private boolean fogRecolorEnabled;
     private final Random random = new Random();
 
     private static final Color HAZE_VOID = Color.fromRGB(84, 22, 120);      // void purple
@@ -125,6 +126,7 @@ public class VoidTension extends Mood implements Listener {
             configStrongMobSpawnChance = moodConfig.getDouble("strongMobSpawnChance", 0.12);
             ambientHazeEnabled = moodConfig.getBoolean("voidHaze", true);
             screenWarpEnabled = moodConfig.getBoolean("screenWarp", true);
+            fogRecolorEnabled = moodConfig.getBoolean("fogRecolor", true);
 
             ConfigurationSection anomaliesConfig = moodConfig.getConfigurationSection("individualAnomalies");
             if (anomaliesConfig != null && configEnableAnomalies) {
@@ -185,6 +187,7 @@ public class VoidTension extends Mood implements Listener {
             configStrongMobSpawnChance = 0.12;
             ambientHazeEnabled = true;
             screenWarpEnabled = true;
+            fogRecolorEnabled = true;
             anomalyAntiGravityPulseEnabled = true; anomalyAntiGravityPulseDurationTicks = DEFAULT_SHORT_DURATION_SECONDS * 20;
             anomalyVoidGraspEnabled = true; anomalyVoidGraspDurationTicks = DEFAULT_MEDIUM_DURATION_SECONDS * 20;
             anomalyRealityTearEnabled = true; anomalyRealityTearDurationTicks = DEFAULT_SHORT_DURATION_SECONDS * 20;
@@ -273,6 +276,11 @@ public class VoidTension extends Mood implements Listener {
                 }
             }
         }
+        // Recolour the fog a deep void purple around each player (crash-safe; no-ops on legacy).
+        if (fogRecolorEnabled) {
+            plugin.getFogController().begin("worldmood:void_tension");
+        }
+
         for(Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.BLOCK_PORTAL_AMBIENT, SoundCategory.AMBIENT, 0.8f, 0.4f);
             p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_SCREAM, SoundCategory.HOSTILE, 0.35f, 0.6f);
@@ -283,6 +291,8 @@ public class VoidTension extends Mood implements Listener {
     @Override
     public void remove() {
         HandlerList.unregisterAll(this);
+        // Restore the recoloured fog biomes (safe to call even if fog was never applied).
+        plugin.getFogController().end();
         originalBorders.forEach((worldUID, settings) -> {
             World world = Bukkit.getWorld(worldUID);
             if (world != null && (world.getEnvironment() == World.Environment.NORMAL || world.getEnvironment() == World.Environment.THE_END)) {
