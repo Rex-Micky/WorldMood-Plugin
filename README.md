@@ -15,13 +15,29 @@ itself. Everything is toggleable and tunable in `config.yml`.
 
 | Mood | What it does | When |
 | :---- | :---- | :---- |
-| 🩸 **Blood Moon** | Hostile mobs spawn stronger, faster and more numerous under a red sky. Triggers Blood Frenzy, Crimson Lightning and Horde Surge events. | Night only |
+| 🩸 **Blood Moon** | Hostile mobs spawn stronger, faster and more numerous. Triggers Blood Frenzy, Crimson Lightning and Horde Surge events. | Night only |
 | ☀️ **Calm Skies** | Hostile spawning suppressed, storms cleared, players regenerate. | Day only |
 | 🔥 **Infernal Heat** | The sun burns exposed players. Seek shade, water or protection. | Day only |
 | 🌬️ **Prosperous Winds** | Richer ore veins and better drops from fallen mobs. | Day only |
 | 🍀 **Lucky Day** | Improved fortune on loot and trades. | Day only |
 | 🌑 **Shadow Veil** | Flickering blindness and invisibility, ambient dread, true darkness in caves. | Night only |
 | 🌀 **Void Tension** | Reality strains — mobs turn void-touched, move unnaturally and teleport. | Any |
+
+## **📸 Screenshots**
+
+Each mood announces itself in chat, shows a boss-bar countdown, and posts its full effect list on
+a temporary scoreboard.
+
+![Blood Moon starting](docs/screenshots/worldmood-blood-moon.gif)
+
+*A Blood Moon rolling in — the broadcast, boss bar and ambience all shift the moment it begins.*
+
+| | |
+| :---: | :---: |
+| ![Calm Skies](docs/screenshots/worldmood-1-calm-skies.png) | ![Blood Moon effects](docs/screenshots/worldmood-2-blood-moon-effects.png) |
+| **Calm Skies** — a zombie burns in the returning daylight | **Blood Moon** — the full effect breakdown |
+| ![Shadow Veil](docs/screenshots/worldmood-5-shadow-veil.png) | ![Void Tension](docs/screenshots/worldmood-4-void-tension.png) |
+| **Shadow Veil** — deepening dark and unsettling whispers | **Void Tension** — void-touched mobs and warped reality |
 
 ## **🎮 Commands & Permissions**
 
