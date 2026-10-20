@@ -1,113 +1,64 @@
-# **WorldMood**
+# WorldMood
 
-![worldmood-plugin](https://i.postimg.cc/cLhkQg7D/worldmood-plugin.jpg)
+![WorldMood](https://i.postimg.cc/cLhkQg7D/worldmood-plugin.jpg)
 
-## **What is WorldMood?**
+WorldMood is a Spigot and Paper plugin that runs timed moods on a server. By default it picks one of
+seven moods at random every 30 minutes, announces it in chat, shows a boss bar countdown and a short
+scoreboard summary, and undoes its changes when the mood ends. It is on
+[SpigotMC](https://www.spigotmc.org/resources/137321/) and [Modrinth](https://modrinth.com/plugin/worldmood).
 
-WorldMood cycles your server through seven distinct **moods** — timed events that change how the
-world actually plays, not just how it looks. A Blood Moon makes the night genuinely dangerous.
-Calm Skies stops hostile mobs spawning at all. Void Tension makes creatures blink through space.
+![A Blood Moon starting](docs/screenshots/worldmood-blood-moon.gif)
 
-Each mood announces itself, runs for a set time, shows a boss-bar countdown, and cleans up after
-itself. Everything is toggleable and tunable in `config.yml`.
+## Moods
 
-## **✨ The seven moods**
+The numbers are the defaults from `config.yml`. Every mood can be disabled, weighted or retimed there.
 
-| Mood | What it does | When |
-| :---- | :---- | :---- |
-| 🩸 **Blood Moon** | Hostile mobs spawn stronger, faster and more numerous. Triggers Blood Frenzy, Crimson Lightning and Horde Surge events. | Night only |
-| ☀️ **Calm Skies** | Hostile spawning suppressed, storms cleared, players regenerate. | Day only |
-| 🔥 **Infernal Heat** | The sun burns exposed players. Seek shade, water or protection. | Day only |
-| 🌬️ **Prosperous Winds** | Richer ore veins and better drops from fallen mobs. | Day only |
-| 🍀 **Lucky Day** | Improved fortune on loot and trades. | Day only |
-| 🌑 **Shadow Veil** | Flickering blindness and invisibility, ambient dread, true darkness in caves. | Night only |
-| 🌀 **Void Tension** | Reality strains — mobs turn void-touched, move unnaturally and teleport. | Any |
+- Blood Moon (night only): hostile mobs get 50% more health, 20% more damage and twice the spawn
+  rate. Random events speed mobs up, strike visual lightning or spawn three zombies near each player.
+- Calm Skies: natural mob spawning stops in the Overworld, storms clear and players get Regeneration.
+- Infernal Heat (day only): players in direct sunlight catch fire unless they wear a helmet. This can
+  be changed to full armour, Fire Resistance or no protection. Fire Protection always counts.
+- Prosperous Winds: ores have a 15% chance to drop double, mobs have a 10% chance to drop extra
+  loot and XP is multiplied by 1.5.
+- Lucky Day: five minutes of Luck, villager trades at half price (1.18+), double XP and a small
+  chance of treasure items from mining and mob kills.
+- Shadow Veil (night only): short bursts of Blindness or Invisibility, ambient sounds and occasional
+  Darkness.
+- Void Tension: lasts one in-game day. Hostile mobs move faster and teleport, some spawn stronger,
+  and random anomalies hit players, such as levitation, nausea and short teleports.
 
-## **📸 Screenshots**
+On 1.21 and newer, Blood Moon, Shadow Veil and Void Tension also tint the fog around each player.
 
-Each mood announces itself in chat, shows a boss-bar countdown, and posts its full effect list on
-a temporary scoreboard.
+## Commands
 
-![Blood Moon starting](docs/screenshots/worldmood-blood-moon.gif)
-
-*A Blood Moon rolling in — the broadcast, boss bar and ambience all shift the moment it begins.*
-
-| | |
-| :---: | :---: |
-| ![Calm Skies](docs/screenshots/worldmood-1-calm-skies.png) | ![Blood Moon effects](docs/screenshots/worldmood-2-blood-moon-effects.png) |
-| **Calm Skies** — a zombie burns in the returning daylight | **Blood Moon** — the full effect breakdown |
-| ![Shadow Veil](docs/screenshots/worldmood-5-shadow-veil.png) | ![Void Tension](docs/screenshots/worldmood-4-void-tension.png) |
-| **Shadow Veil** — deepening dark and unsettling whispers | **Void Tension** — void-touched mobs and warped reality |
-
-## **🎮 Commands & Permissions**
-
-The main command is `/worldmood`, aliased to `/wm`.
-
-| Command | Description | Permission |
-| :---- | :---- | :---- |
-| `/wm start <mood>` | Force-starts a specific mood. | `worldmood.admin` |
-| `/wm stop` | Stops the current mood, starts nothing new. | `worldmood.admin` |
-| `/wm skip` | Stops the current mood and rolls a new one. | `worldmood.admin` |
-| `/wm list` | Shows status and every configured mood. | `worldmood.admin` |
-| `/wm info` | Alias for `list`. | `worldmood.admin` |
-| `/wm reload` | Reloads `config.yml`. | `worldmood.admin` |
-
-| Permission Node | Description | Default |
-| :---- | :---- | :---- |
-| `worldmood.admin` | Grants access to all `/worldmood` commands. | `op` |
-
-## **⚙️ Which download do I need?**
-
-There are two jars. **Pick the one that matches your server — do not install both.**
-
-| Your Minecraft version | Download | Needs |
-| :---- | :---- | :---- |
-| **1.20 – 1.21.x** | `WorldMood-x.y.z.jar` | Java 17+ |
-| **1.16.5 – 1.19.x** | `WorldMood-x.y.z-legacy.jar` | Java 8+ |
-
-Same features, same config, same commands. They exist as two files because servers older than 1.18
-run on Java 8–16, which cannot load modern Java bytecode at all — one jar physically cannot cover
-both eras.
-
-On older servers a few *visual* extras are unavailable and the plugin substitutes the nearest
-equivalent automatically: the Darkness effect and the Sonic Boom particle (1.19+), the colour-fading
-dust particle (1.17+), and villager trade discounts (1.18+). Everything else behaves identically,
-and the plugin logs exactly what your version does and does not support when it starts.
-
-Spigot and Paper are both supported. No dependencies, no database, no external calls.
-
-## **📥 Installation**
-
-1. Download the jar for your version from the [Releases](https://github.com/Rex-Micky/WorldMood-Plugin/releases) page.
-2. Drop it into your server's `/plugins` folder.
-3. Restart the server.
-4. Edit `/plugins/WorldMood/config.yml` to taste, then `/wm reload`.
-
-## **🛡️ A note on your world's settings**
-
-Two moods change settings that are stored in your **world save**, not in the plugin: Calm Skies
-temporarily turns off the `doMobSpawning` game rule, and Blood Moon and Void Tension temporarily
-adjust the world border to tint the sky.
-
-WorldMood writes these down to `plugins/WorldMood/pending-world-state.yml` *before* changing them,
-and restores them on startup if the server ever goes down mid-mood. **If you ever remove the plugin
-while a mood is active, start it once more and stop the mood cleanly** — or check that file and set
-those values back by hand.
-
-## **🔧 Building from source**
-
-```bash
-git clone https://github.com/Rex-Micky/WorldMood-Plugin.git
-cd WorldMood-Plugin
-./gradlew build      # jar lands in build/libs/
+```
+/wm start <mood>   start a mood by its key, e.g. blood_moon
+/wm stop           end the current mood
+/wm skip           end the current mood and roll a new one
+/wm list           show the active mood and all configured moods (also /wm info)
+/wm reload         reload config.yml
 ```
 
-## **💬 Support & Suggestions**
+`/wm` is short for `/worldmood`. Every command needs `worldmood.admin`, which ops have by default.
 
-Found a bug or have an idea for a new mood?
+## Installing
 
-* Open an issue on this [repository](https://github.com/Rex-Micky/WorldMood-Plugin/issues).
-* Join the [Discord](https://discord.gg/9bmgP7BpH8).
+There are two jars on the [releases page](https://github.com/Rex-Micky/WorldMood-Plugin/releases).
+Use `WorldMood-x.y.z.jar` for 1.20 to 1.21.x (Java 17+) and `WorldMood-x.y.z-legacy.jar` for 1.16.5
+to 1.19.x (Java 8+). Install only one of them. On old versions a few visual effects such as Darkness
+and the Sonic Boom particle don't exist, so the plugin uses something close and logs what it skipped.
 
-I also build **custom Minecraft plugins** to order — economy systems, cosmetics, custom mechanics
-and QoL tools. Portfolio: [studio.rexmicky.dev](https://studio.rexmicky.dev)
+The coloured fog comes from a small datapack that the plugin copies into your main world on first
+start. It needs one restart before it works.
+
+Calm Skies turns off the `doMobSpawning` game rule, Blood Moon changes the world border and the fog
+moods change biomes around players. WorldMood writes the original values to
+`plugins/WorldMood/pending-world-state.yml` before it changes anything, and puts them back on the
+next start if the server stopped mid-mood. If you remove the plugin, run `/wm stop` first.
+
+## Building
+
+Run `./gradlew build` with JDK 21. Both jars end up in `build/libs/`.
+
+Bugs go in the [issue tracker](https://github.com/Rex-Micky/WorldMood-Plugin/issues), or ask on
+[Discord](https://discord.gg/9bmgP7BpH8). WorldMood is not open source; see [LICENSE](LICENSE).
