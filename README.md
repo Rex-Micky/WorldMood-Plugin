@@ -11,21 +11,31 @@ scoreboard summary, and undoes its changes when the mood ends. It is on
 
 ## Moods
 
-The numbers are the defaults from `config.yml`. Every mood can be disabled, weighted or retimed there.
+The numbers are the defaults from `config.yml`, where each mood can be turned off or given a
+different weight. Only Blood Moon takes its length from the `duration` setting. The other moods
+set their own length, which is given at the end of each entry.
 
 - Blood Moon (night only): hostile mobs get 50% more health, 20% more damage and twice the spawn
   rate. Random events speed mobs up, strike visual lightning or spawn three zombies near each player.
+  It lasts for `duration`, which is 300 seconds by default.
 - Calm Skies: natural mob spawning stops in the Overworld, storms clear and players get Regeneration.
+  It lasts until the next sunset or sunrise.
 - Infernal Heat (day only): players in direct sunlight catch fire unless they wear a helmet. This can
-  be changed to full armour, Fire Resistance or no protection. Fire Protection always counts.
+  be changed to full armour, Fire Resistance or no protection. Fire Protection always counts. It
+  lasts until sunset.
 - Prosperous Winds: ores have a 15% chance to drop double, mobs have a 10% chance to drop extra
-  loot and XP is multiplied by 1.5.
+  loot and XP is multiplied by 1.5. It lasts until the next sunset or sunrise.
 - Lucky Day: five minutes of Luck, villager trades at half price (1.18+), double XP and a small
-  chance of treasure items from mining and mob kills.
+  chance of treasure items from mining and mob kills. It lasts until the next sunset or sunrise.
 - Shadow Veil (night only): short bursts of Blindness or Invisibility, ambient sounds and occasional
-  Darkness.
-- Void Tension: lasts one in-game day. Hostile mobs move faster and teleport, some spawn stronger,
-  and random anomalies hit players, such as levitation, nausea and short teleports.
+  Darkness. It lasts until sunrise.
+- Void Tension: hostile mobs move faster and teleport, some spawn stronger, and random anomalies
+  hit players, such as levitation, nausea and short teleports. It lasts one in-game day, which is
+  20 minutes.
+
+The plugin treats world time 12500 as sunset and 24000 as sunrise, so a mood that ends at one of
+them runs for about 10 minutes at most. If you start Infernal Heat or Shadow Veil with `/wm start`
+outside their time of day, they use `duration` instead.
 
 On 1.21 and newer, Blood Moon, Shadow Veil and Void Tension also tint the fog around each player.
 
